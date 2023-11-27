@@ -38,7 +38,7 @@ app.use(cors(corsOptions));
     })
   }
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = "mongodb://0.0.0.0:27017";
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -50,6 +50,8 @@ const client = new MongoClient(uri, {
   }
 });
 const usersCollection =  client.db("stockSculpt").collection("users");
+const shopsCollection =  client.db("stockSculpt").collection("shops");
+const productsCollection =  client.db("stockSculpt").collection("products");
 
 async function run() {
   try {
@@ -79,6 +81,7 @@ app.post('/jwt', async (req, res) => {
     const user = req.body;
     const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '120h' });
     res.send({ token });
+    
   })
 
 app.post('/users', async(req, res) => {
@@ -92,4 +95,43 @@ app.post('/users', async(req, res) => {
       const result = await usersCollection.insertOne(user);
       res.send(result);
 
+})
+
+app.post('/shops',verifyToken, async(req, res) => {
+    const data =  req.body
+
+    const shopInsertResult = await shopsCollection.insertOne(data)
+    const shopNameResponse = await  shopsCollection.findOne({email: data.email})
+    const shopName = shopNameResponse.shopName
+    const shopId = shopInsertResult.insertedId
+    // console.log(result)
+    // console.log(shopId);
+    // console.log(data);
+    // console.log(data);
+    const filter = { email: data.shopOwnerEmail };
+    const options = { upsert: false }
+    const updateUser = {
+        $set: {
+          roll: 'manager',
+          shopId: shopId,
+          shopLogo : data.shopLogo,
+          shopName
+
+        },
+      };
+      // console.log(updateUser);
+
+    const updateUserResult = await usersCollection.updateOne(filter,updateUser,options)
+
+    res.send({shopInsertResult,updateUserResult})
+
+})
+
+// single shop 
+
+app.get('/shop/:email', async(req, res) => {
+  const email = req.params.email
+  const result = await usersCollection.findOne({ email: email})
+  
+  res.send(result)
 })

@@ -40,14 +40,14 @@ const verifyToken = (req, res, next) => {
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: '2183081041@uttarauniversity.edu.bd',
-    pass: 'T12003400500t@',
+    user: process.env.EMAIL_ADDRESS,
+    pass: process.env.EPass
   },
 });
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
-const uri = "mongodb://0.0.0.0:27017";
-// const uri = `mongodb+srv://${process.env.USER}:${process.env.PASSWORD}@cluster0.vfbjj6s.mongodb.net/?retryWrites=true&w=majority`;
+// const uri = "mongodb://0.0.0.0:27017";
+const uri = `mongodb+srv://${process.env.USER}:${process.env.PASSWORD}@cluster0.vfbjj6s.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {

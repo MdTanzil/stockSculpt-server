@@ -4,6 +4,7 @@ const port = process.env.PORT || 3000;
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
+const nodemailer = require('nodemailer');
 
 //middleware
 const corsOptions = {
@@ -33,12 +34,20 @@ const verifyToken = (req, res, next) => {
     next();
   });
 };
-// sIuXK2PfxaUOAtYZ
-//  StockSculpt
+// email sending setteing
+
+// Create a transporter
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: '2183081041@uttarauniversity.edu.bd',
+    pass: 'T12003400500t@',
+  },
+});
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
-// const uri = "mongodb://0.0.0.0:27017";
-const uri = `mongodb+srv://${process.env.USER}:${process.env.PASSWORD}@cluster0.vfbjj6s.mongodb.net/?retryWrites=true&w=majority`;
+const uri = "mongodb://0.0.0.0:27017";
+// const uri = `mongodb+srv://${process.env.USER}:${process.env.PASSWORD}@cluster0.vfbjj6s.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -164,16 +173,25 @@ app.get("/shop/:email", async (req, res) => {
 
 app.get("/shops/:email", async (req, res) => {
   const email = req.params.email;
-  console.log(email);
-  if (!email) {
-    const result = await shopsCollection.find();
-
-    res.send(result);
-  } else {
+  // console.log(email);
+  if (email) {
     const result = await shopsCollection.findOne({ shopOwnerEmail: email });
     // console.log(result);
+    // res.send(result);
+    // const result = await shopsCollection.find().toArray()
+
     res.send(result);
-  }
+  } 
+});
+
+//get all product
+
+app.get("/shops", async (req, res) => {
+  
+  
+    const result = await shopsCollection.find().toArray()
+
+    res.send(result);
 });
 
 // get products
@@ -331,7 +349,7 @@ app.post("/payments", async (req, res) => {
       },
       {
         $inc: {
-          limit: 150,
+          limit: 1500,
         },
       }
     );
@@ -348,4 +366,78 @@ app.post("/payments", async (req, res) => {
   // const deleteResult = await cartCollection.deleteMany(query);
   console.log("hit ", paymentResult);
   res.send({ paymentResult });
+});
+
+// admin routes
+
+app.get('/admin/state',async(req,res)=>{
+  let result
+  // total payment 
+  const totalPrice = await paymentCollection.aggregate([
+    {
+      $group: {
+        _id: null,
+        totalPrice: { $sum: '$price' },
+      },
+    },
+  ]).toArray();
+  const total =totalPrice[0].totalPrice
+  // total product
+  const totalProduct = await productsCollection.countDocuments()
+
+  // total sales
+  const sales =await salesCollection.aggregate([
+    {
+      $match: {
+        order: true,
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        totalSellingPrice: { $sum: '$sellingPrice' },
+      },
+    },
+  ]).toArray();
+  const totalSale = sales[0].totalSellingPrice
+
+  result={
+    total,
+    totalProduct,
+    totalSale
+  }
+  // result.total = total
+  res.send(result)
+
+
+})
+
+app.get('/users', async (req, res) => {
+
+  const result = await usersCollection.find().toArray()
+  res.send(result)
+
+})
+
+// Email sending route
+
+app.post('/send-email', (req, res) => {
+  const { to, subject, text } = req.body;
+
+  const mailOptions = {
+    from: '2183081041@uttarauniversity.edu.bd',
+    to,
+    subject,
+    text,
+  };
+
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      console.error(error);
+      res.send({success:false});
+    } else {
+      console.log('Email sent: ' + info.response);
+      res.send({success:true});
+    }
+  });
 });

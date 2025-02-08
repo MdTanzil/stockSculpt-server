@@ -8,17 +8,24 @@ const loginUser = async (req, res) => {
 
   const user = await User.findOne({ email });
 
-  if (user && (await bcrypt.compare(password, user.password))) {
+   if (user && (await bcrypt.compare(password, user.password))) {
+    const { accessToken, refreshToken } = generateTokens(user._id);
+
+    // Store refresh token in HTTP-only cookie
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,  
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Strict",
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    })
+
     res.json({
       _id: user._id,
       name: user.name,
       email: user.email,
       role: user.role,
-      token: generateToken(user._id),
+      accessToken, 
     });
-  } else {
-    res.status(401).json({ message: "Invalid credentials" });
-  }
 };
 
 const logoutUser = (req, res) => {

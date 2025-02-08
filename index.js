@@ -47,7 +47,7 @@ const transporter = nodemailer.createTransport({
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 // const uri = "mongodb://0.0.0.0:27017";
-const uri = `mongodb+srv://${process.env.USER}:${process.env.PASSWORD}@cluster0.vfbjj6s.mongodb.net/?retryWrites=true&w=majority`;
+const uri = `mongodb+srv://StockSculpt:sIuXK2PfxaUOAtYZ@cluster0.vfbjj6s.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {

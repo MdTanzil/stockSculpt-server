@@ -14,7 +14,7 @@ const createShop = async (req, res) => {
 // Get all shops
 const getShops = async (req, res) => {
   try {
-    const shops = await Shop.find();
+    const shops = await Shop.find().populate("owner", "name email");
     res.json(shops);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -23,23 +23,39 @@ const getShops = async (req, res) => {
 
 // Update a shop by ID
 const updateShop = async (req, res) => {
-  try {
-    const shop = await Shop.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
-    if (!shop) return res.status(404).json({ error: "Shop not found" });
-    res.json(shop);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
+  const shop = await Shop.findById(req.params.id);
+
+  if (!shop) return res.status(404).json({ message: "Shop not found" });
+
+  if (
+    shop.owner.toString() !== req.user._id.toString() &&
+    req.user.role !== "admin"
+  ) {
+    return res.status(403).json({ message: "Access denied" });
   }
+
+  // new tricks for update
+
+  Object.assign(shop, req.body);
+  await shop.save();
+  res.json(shop);
 };
 
 // Delete a shop by ID
 const deleteShop = async (req, res) => {
   try {
-    const shop = await Shop.findByIdAndDelete(req.params.id);
+    // const shop = await Shop.findByIdAndDelete(req.params.id);
+    const shop = await Shop.findById(req.params.id);
     if (!shop) return res.status(404).json({ error: "Shop not found" });
-    res.json({ message: "Shop deleted successfully" });
+
+    if (
+      shop.owner.toString() !== req.user._id.toString() &&
+      req.user.role !== "admin"
+    ) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    const deletedShop = await Shop.findByIdAndDelete(req.params.id);
+    res.json(deletedShop);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -2,7 +2,7 @@ const jwt = require("jsonwebtoken");
 const User = require("../../model/User");
 
 const refreshAccessToken = async (req, res) => {
-  const refreshToken = req.cookies.refreshToken; // Get refresh token from cookie
+  const refreshToken = req.cookies?.refreshToken; // Get refresh token from cookie
 
   if (!refreshToken)
     return res.status(401).json({ message: "Unauthorized, no refresh token" });
@@ -15,7 +15,7 @@ const refreshAccessToken = async (req, res) => {
 
     // Generate new access token
     const accessToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "15m",
+      expiresIn: "1d",
     });
 
     res.json({ accessToken }); // Send new access token to frontend

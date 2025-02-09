@@ -4,11 +4,17 @@ const {
   getProducts,
   updateProduct,
   deleteProduct,
+  getProduct,
 } = require("../controllers/product/productController");
+const { authenticateUser } = require("../middlewares/authMiddleware");
+const {
+  checkProductOwnership,
+} = require("../middlewares/checkProductOwnership");
 
-router.post("/", createProduct); // Create product
-router.get("/", getProducts); // Get all products
-router.put("/:id", updateProduct); // Update product by ID
-router.delete("/:id", deleteProduct); // Delete product by ID
+router.post("/", authenticateUser, createProduct); // Create product
+router.get("/", authenticateUser, getProducts); // Get all products
+router.get("/:id", authenticateUser, getProduct); // get product by ID
+router.put("/:id", authenticateUser, checkProductOwnership, updateProduct); // Update product by ID
+router.delete("/:id", authenticateUser, checkProductOwnership, deleteProduct); // Delete product by ID
 
 module.exports = router;

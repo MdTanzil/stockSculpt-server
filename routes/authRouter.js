@@ -6,6 +6,6 @@ const {
 
 router.post("/refresh", refreshAccessToken);
 router.post("/login", loginUser);
-router.post("/login", logoutUser);
+router.post("/logout", logoutUser);
 
 module.exports = router;

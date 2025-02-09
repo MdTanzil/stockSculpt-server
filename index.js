@@ -1,12 +1,15 @@
 const express = require("express");
 const app = express();
-const port = 3000;
+const cookieParser = require("cookie-parser");
 // const dbConnect = require("./db");
 const routes = require("./routes");
 const { dbConnect } = require("./db");
 const { User } = require("./model");
 
+const port = 3000;
+
 app.use(express.json());
+app.use(cookieParser());
 app.get("/", (req, res) => {
   res.send("server alive ");
 });

@@ -44,6 +44,23 @@ const getUsers = async (req, res) => {
   }
 };
 
+// Get user by ID (GET /api/users/:id)
+const getUser = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    const user = await User.findById(userId).select("-password"); // Exclude password from response
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // Update user by ID (PUT /api/users/:id)
 const updateUser = async (req, res) => {
   try {
@@ -84,4 +101,4 @@ const deleteUser = async (req, res) => {
   }
 };
 
-module.exports = { createUser, getUsers, updateUser, deleteUser };
+module.exports = { createUser, getUsers, updateUser, deleteUser, getUser };

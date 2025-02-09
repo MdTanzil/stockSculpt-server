@@ -11,4 +11,4 @@ const generateTokens = (id) => {
   return { accessToken, refreshToken };
 };
 
-module.exports = generateTokens;
+module.exports = { generateTokens };

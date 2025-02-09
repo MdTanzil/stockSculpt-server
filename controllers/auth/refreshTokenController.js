@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const User = require("../models/User");
+const User = require("../../model/User");
 
 const refreshAccessToken = async (req, res) => {
   const refreshToken = req.cookies.refreshToken; // Get refresh token from cookie

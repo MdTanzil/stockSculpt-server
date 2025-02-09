@@ -1,35 +1,55 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-const User = require("../models/User");
-const generateToken = require("../../utils/generateToken");
+
+const User = require("../../model/User");
+const { generateTokens } = require("../../utils/generateToken");
 
 const loginUser = async (req, res) => {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-  const user = await User.findOne({ email });
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
 
-   if (user && (await bcrypt.compare(password, user.password))) {
+    const isPasswordMatch = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // Generate access & refresh tokens
     const { accessToken, refreshToken } = generateTokens(user._id);
 
-    // Store refresh token in HTTP-only cookie
     res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,  
+      httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "Strict",
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-    })
+    });
 
-    res.json({
+    return res.json({
       _id: user._id,
       name: user.name,
       email: user.email,
       role: user.role,
-      accessToken, 
+      accessToken,
     });
+  } catch (error) {
+    console.error("Login error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
 };
 
 const logoutUser = (req, res) => {
-  res.json({ message: "User logged out" });
+  res.clearCookie("refreshToken", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "Strict",
+  });
+
+  res.json({ message: "User logged out successfully" });
 };
 
 module.exports = { loginUser, logoutUser };

@@ -4,31 +4,50 @@ const { User } = require("../../model");
 // Create a new user (POST /api/users)
 const createUser = async (req, res) => {
   try {
-    const { name, email, password, avatar, dateOfBirth, role } = req.body;
+    const { name, email, password, avatar, dateOfBirth, role, provider } =
+      req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
+
     if (existingUser) {
-      return res.status(400).json({ error: "Email already in use" });
+      return res
+        .status(200)
+        .json({ message: "User already exists", user: existingUser });
     }
 
     // Hash the password before saving
-    const hashedPassword = await bcrypt.hash(password, 10);
+    let hashedPassword = password ? await bcrypt.hash(password, 10) : null;
 
+    let avatarUrl = null;
+    if (typeof avatar === "string") {
+      avatarUrl = avatar;
+    } else if (avatar && typeof avatar === "object") {
+      console.warn("Invalid avatar format received:", avatar);
+    }
+
+    // Create user data object
     const newUser = new User({
       name,
       email,
       password: hashedPassword,
-      avatar,
+      avatar: avatarUrl, // Stores only valid URLs or null
       dateOfBirth,
-      role,
+      role: role || "user",
+      provider,
     });
 
+    // Save user to database
     await newUser.save();
-    res
-      .status(201)
-      .json({ message: "User created successfully", user: newUser });
+
+    await newUser.save();
+    res.status(201).json({
+      message: "User created successfully",
+      user: { ...newUser.toObject(), password: undefined },
+    });
   } catch (error) {
+    console.log(error.message);
+
     res.status(500).json({ error: error.message });
   }
 };

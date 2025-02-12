@@ -6,18 +6,19 @@ const { generateTokens } = require("../../utils/generateToken");
 
 const loginUser = async (req, res) => {
   try {
-    const { email, password, firebaseToken } = req.body;
+    const { email, password, provider } = req.body;
+    console.log(email);
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      return res.status(401).json({ message: "No user found" });
     }
 
-    if (!firebaseToken) {
+    if (!provider) {
       const isPasswordMatch = await bcrypt.compare(password, user.password);
 
       if (!isPasswordMatch) {
-        return res.status(401).json({ message: "Invalid credentials" });
+        return res.status(401).json({ message: "Password match error" });
       }
     }
 

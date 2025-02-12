@@ -10,7 +10,7 @@ const userSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true },
   lastLogin: { type: Date, default: Date.now },
   createdAt: { type: Date, default: Date.now },
-  firebaseUid: { type: String, unique: true, sparse: true },
+  provider: { type: String, required: false, default: "General" },
 });
 
 module.exports = mongoose.model("User", userSchema);

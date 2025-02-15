@@ -18,6 +18,8 @@ const createOrder = async (req, res) => {
     await order.save();
     res.status(201).json(order);
   } catch (error) {
+    console.log(error.message);
+
     res.status(400).json({ error: error.message });
   }
 };
@@ -51,6 +53,8 @@ const updateOrder = async (req, res) => {
     if (!order) return res.status(404).json({ error: "Order not found" });
     res.json(order);
   } catch (error) {
+    console.log(error.message);
+
     res.status(400).json({ error: error.message });
   }
 };

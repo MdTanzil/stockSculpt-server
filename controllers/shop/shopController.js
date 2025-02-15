@@ -6,6 +6,7 @@ const Shop = require("../../model/Shop");
 const createShop = async (req, res) => {
   try {
     const { subscriptionPlan, ...shopData } = req.body;
+    shopData.owner = req.user._id;
     const shop = new Shop(shopData);
     await shop.save();
     res.status(201).json(shop);
@@ -41,6 +42,19 @@ const getShop = async (req, res) => {
   }
 
   res.json(shop);
+};
+
+// Get a shop by user id
+const getShopByUserID = async (req, res) => {
+  try {
+    const userId = req.user._id; // Convert string to ObjectId
+
+    const shop = await Shop.findOne({ owner: userId });
+
+    res.status(200).json(shop);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
 const updateShop = async (req, res) => {
@@ -87,6 +101,7 @@ const deleteShop = async (req, res) => {
 const getShopProducts = async (req, res) => {
   try {
     const shopId = req.params.id;
+    const products = await Product.find({ shop: shopId });
     res.json(products);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -116,4 +131,5 @@ module.exports = {
   getShop,
   getShopProducts,
   getShopOrders,
+  getShopByUserID,
 };

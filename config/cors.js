@@ -1,6 +1,6 @@
 const allowedOrigins = [
   "http://localhost:5173", // Local frontend
-  "https://yourfrontenddomain.com", // Production frontend (Replace this)
+  "https://stocksculpt.web.app", // Production frontend (Replace this)
 ];
 
 const corsOptions = {

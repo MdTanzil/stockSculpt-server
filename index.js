@@ -19,7 +19,11 @@ app.get("/", (req, res) => {
 
 app.use("/api", routes);
 
-app.listen(port, () => {
-  dbConnect();
-  console.log(`Example app listening on port ${port}`);
-});
+// app.listen(port, () => {
+//   dbConnect();
+//   console.log(`Example app listening on port ${port}`);
+// });
+
+dbConnect();
+
+module.exports = app;

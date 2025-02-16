@@ -63,4 +63,13 @@ const logoutUser = (req, res) => {
   res.json({ message: "User logged out successfully" });
 };
 
-module.exports = { loginUser, logoutUser };
+const dbTest = async (req, res) => {
+  try {
+    const users = await User.find({});
+    res.json({ users: users.length });
+  } catch (error) {
+    console.error("Database test error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+module.exports = { loginUser, logoutUser, dbTest };

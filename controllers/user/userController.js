@@ -4,8 +4,11 @@ const { User } = require("../../model");
 // Create a new user (POST /api/users)
 const createUser = async (req, res) => {
   try {
-    const { name, email, password, avatar, dateOfBirth, role, provider } =
-      req.body;
+    // NOTE: role is intentionally NOT read from req.body. Registration is a
+    // public endpoint, so accepting a client-supplied role would let anyone
+    // register as admin. New users are always "user"; an existing admin
+    // promotes accounts via PUT /api/users/:id (admin-only).
+    const { name, email, password, avatar, dateOfBirth, provider } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -33,7 +36,7 @@ const createUser = async (req, res) => {
       password: hashedPassword,
       avatar: avatarUrl, // Stores only valid URLs or null
       dateOfBirth,
-      role: role || "user",
+      role: "user",
       provider,
     });
 

@@ -54,11 +54,11 @@ Admin-only routes also require the `admin` role.
 
 | Method & path | Auth | Purpose |
 |---|---|---|
-| `POST /api/users` | – | Register a user |
-| `GET /api/users` | – | List users |
-| `GET /api/users/:id` | – | Get one user |
-| `PUT /api/users/:id` | – | Update a user |
-| `DELETE /api/users/:id` | – | Delete a user |
+| `POST /api/users` | – | Register a user (role is always `user`) |
+| `GET /api/users` | Admin | List users |
+| `GET /api/users/:id` | Admin | Get one user |
+| `PUT /api/users/:id` | Admin | Update a user (incl. changing roles) |
+| `DELETE /api/users/:id` | Admin | Delete a user |
 
 ### Shops — `/api/shop`
 
@@ -122,7 +122,12 @@ environment variables above must be set in the Vercel project.
   secret key in Vercel env vars).
 - No `/send-email` endpoint yet — admin notice/promotional emails have no
   backend.
-- `/api/users` and `/api/subscriptions` routes are currently unauthenticated.
+- `/api/subscriptions` routes are currently unauthenticated.
+- `/api/auth/login` trusts the email the client sends (it does not verify
+  the Firebase ID token), so a caller who knows an admin's email can mint
+  a token for that account. Proper fix: verify the Firebase ID token
+  server-side with `firebase-admin` (needs the Firebase service-account
+  key in Vercel env vars).
 
 ## Project structure
 

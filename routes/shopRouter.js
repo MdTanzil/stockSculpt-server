@@ -23,19 +23,12 @@ router.get("/:id", authenticateUser, checkShopOwnership, getShop); // Get a shop
 
 router.put("/:id", authenticateUser, checkShopOwnership, updateShop); // Update shop by ID
 router.delete("/:id", authenticateUser, checkShopOwnership, deleteShop); // Delete shop by ID
-router.get("/:id/orders", authenticateUser, checkShopOwnership, getShopOrders); // Get all shop products
+router.get("/:id/orders", authenticateUser, checkShopOwnership, getShopOrders); // Get all shop orders
 router.get(
   "/:id/products",
   authenticateUser,
   checkShopOwnership,
   getShopProducts
 ); // Get all shop products
-router.get(
-  "/:id/products",
-  authenticateUser,
-  checkShopOwnership,
-  getShopProducts
-); // Get all shop products
-router.get("/:id/orders", authenticateUser, checkShopOwnership, getShopOrders); // Get all shop products
 
 module.exports = router;

@@ -10,7 +10,13 @@ const checkOrderAccess = async (req, res, next) => {
 
     const shop = await Shop.findById(order.shop);
     if (!shop) {
-      return res.status(404).json({ error: "Shop not found" });
+      // The order's shop no longer exists (orphaned order). Admins can
+      // still manage it; everyone else is denied instead of getting a
+      // misleading 404.
+      if (req.user.role !== "admin") {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      return next();
     }
 
     // Allow if the user is the shop owner or an admin

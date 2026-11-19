@@ -93,6 +93,9 @@ Admin-only routes also require the `admin` role.
 | `PUT /api/order/:id` | Access check | Update an order (status etc.) |
 | `DELETE /api/order/:id` | Access check | Delete an order |
 
+The access check allows the shop owner or an admin; if the order's shop
+no longer exists, only an admin may update or delete it.
+
 ### Subscriptions — `/api/subscriptions`
 
 | Method & path | Auth | Purpose |

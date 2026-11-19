@@ -113,9 +113,9 @@ const getShopOrders = async (req, res) => {
     const shopId = req.params.id;
 
     // Find orders for the shop
-    const orders = await Order.find({ shop: shopId }).populate(
-      "products.product"
-    );
+    const orders = await Order.find({ shop: shopId })
+      .populate("shop")
+      .populate("products.product");
 
     res.json(orders);
   } catch (error) {

@@ -96,6 +96,34 @@ Admin-only routes also require the `admin` role.
 The access check allows the shop owner or an admin; if the order's shop
 no longer exists, only an admin may update or delete it.
 
+### Suppliers — `/api/suppliers`
+
+| Method & path | Auth | Purpose |
+|---|---|---|
+| `POST /api/suppliers` | User | Create a supplier for your shop |
+| `GET /api/suppliers` | User | List your shop's suppliers |
+| `GET /api/suppliers/:id` | Access check | Get one supplier |
+| `PUT /api/suppliers/:id` | Access check | Update a supplier |
+| `DELETE /api/suppliers/:id` | Access check | Delete a supplier (blocked while purchase orders reference it) |
+
+### Purchase orders — `/api/purchase-orders`
+
+| Method & path | Auth | Purpose |
+|---|---|---|
+| `POST /api/purchase-orders` | User | Create a purchase order (draft or ordered) |
+| `GET /api/purchase-orders` | User | List your shop's purchase orders |
+| `GET /api/purchase-orders/:id` | Access check | Get one purchase order |
+| `PUT /api/purchase-orders/:id` | Access check | Update a draft/ordered purchase order |
+| `POST /api/purchase-orders/:id/receive` | Access check | Receive an ordered PO — adds quantities to stock |
+| `DELETE /api/purchase-orders/:id` | Access check | Delete a purchase order (received orders cannot be deleted) |
+
+Purchase order lifecycle: `draft` → `ordered` → `received`, or `canceled`
+from draft/ordered. The total cost is always computed server-side from the
+line items (quantity × unit cost). Receiving is only possible from
+`ordered`, so stock can never be added twice; items whose product was
+deleted are skipped and reported in the response. Received and canceled
+orders cannot be edited.
+
 ### Subscriptions — `/api/subscriptions`
 
 | Method & path | Auth | Purpose |
@@ -137,10 +165,11 @@ environment variables above must be set in the Vercel project.
 ```
 config/       # CORS options
 controllers/  # Route handlers (auth, user, shop, product, order,
-              # subscription, admin)
+              # supplier, purchase order, subscription, admin)
 db/           # MongoDB connection
 middlewares/  # JWT auth, role checks, ownership checks
-model/        # Mongoose models (User, Shop, Product, Order, Subscription)
+model/        # Mongoose models (User, Shop, Product, Order, Supplier,
+              # PurchaseOrder, Subscription)
 routes/       # Express routers, mounted under /api
 utils/        # Token helpers
 index.js      # App entry point (also the Vercel function)

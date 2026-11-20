@@ -1,0 +1,102 @@
+const PurchaseOrder = require("../../model/PurchaseOrder");
+const Shop = require("../../model/Shop");
+const Supplier = require("../../model/Supplier");
+
+const pickFields = (body) => ({
+  name: body.name,
+  contactPerson: body.contactPerson,
+  email: body.email,
+  phone: body.phone,
+  address: body.address,
+  notes: body.notes,
+});
+
+// Create a new supplier for the caller's shop
+const createSupplier = async (req, res) => {
+  try {
+    const shop = await Shop.findOne({ owner: req.user._id });
+    if (!shop) {
+      return res.status(403).json({ message: "You don't have a shop" });
+    }
+
+    const supplier = new Supplier({
+      ...pickFields(req.body),
+      shop: shop._id,
+    });
+    await supplier.save();
+    res.status(201).json(supplier);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+// List the caller's shop suppliers (newest first). No shop yet means an
+// empty list, not an error — the client shows its empty state.
+const getSuppliers = async (req, res) => {
+  try {
+    const shop = await Shop.findOne({ owner: req.user._id });
+    if (!shop) return res.json([]);
+    const suppliers = await Supplier.find({ shop: shop._id }).sort({
+      createdAt: -1,
+    });
+    res.json(suppliers);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get a supplier by ID (access checked by middleware)
+const getSupplier = async (req, res) => {
+  try {
+    const supplier = await Supplier.findById(req.params.id);
+    if (!supplier) return res.status(404).json({ error: "Supplier not found" });
+    res.json(supplier);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+// Update a supplier by ID (access checked by middleware)
+const updateSupplier = async (req, res) => {
+  try {
+    const supplier = await Supplier.findByIdAndUpdate(
+      req.params.id,
+      pickFields(req.body),
+      { new: true, runValidators: true }
+    );
+    if (!supplier) return res.status(404).json({ error: "Supplier not found" });
+    res.json(supplier);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+// Delete a supplier by ID (access checked by middleware). A supplier with
+// purchase orders cannot be deleted — its orders would lose their supplier.
+const deleteSupplier = async (req, res) => {
+  try {
+    const orderCount = await PurchaseOrder.countDocuments({
+      supplier: req.params.id,
+    });
+    if (orderCount > 0) {
+      return res.status(400).json({
+        error: `Cannot delete this supplier: ${orderCount} purchase order${
+          orderCount === 1 ? " references" : "s reference"
+        } it. Delete those orders first.`,
+      });
+    }
+    const supplier = await Supplier.findByIdAndDelete(req.params.id);
+    if (!supplier) return res.status(404).json({ error: "Supplier not found" });
+    res.json({ message: "Supplier deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+module.exports = {
+  createSupplier,
+  getSuppliers,
+  getSupplier,
+  updateSupplier,
+  deleteSupplier,
+};

@@ -257,8 +257,10 @@ are seeded automatically on first run when the collection is empty.
 
 Plan fields: `name` (unique), `description`, `price` (monthly, USD),
 `yearlyPrice` (optional), `productLimit`, `features` (string list),
-`popular`, `active`, `order`. Every plan includes all app features —
-only the product limit changes.
+`popular`, `active`, `order`. The `features` list is what the pricing
+cards show: Free lists the core features only, paid plans list the
+core plus the paid features — the cards cross out any paid feature a
+plan's list does not mention, so keep the lists honest.
 
 ### Payments — `/api`
 

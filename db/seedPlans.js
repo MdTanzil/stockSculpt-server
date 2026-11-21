@@ -3,8 +3,17 @@ const Plan = require("../model/Plan");
 // The plans stockSculpt launched with. Seeded once, the first time the
 // server starts with an empty plans collection — after that the admin
 // owns the plans (Manage Plans page) and this never runs again.
-const SHARED_FEATURES = [
+// Free covers the core only; the paid features (point of sale, barcode
+// scanning, reports, suppliers, purchase orders, staff roles) are what
+// the requirePremium middleware gates — keep these lists in sync with
+// it, or the pricing cards will advertise features the plan lacks.
+const CORE_FEATURES = [
   "Inventory & stock tracking",
+  "Orders & invoicing",
+  "Dashboard",
+];
+
+const PAID_FEATURES = [
   "Point of sale (POS)",
   "Barcode scanning",
   "Reports & export",
@@ -18,7 +27,7 @@ const DEFAULT_PLANS = [
     description: "Try stockSculpt with your first products, no card needed.",
     price: 0,
     productLimit: 3,
-    features: ["Up to 3 products", ...SHARED_FEATURES],
+    features: ["Up to 3 products", ...CORE_FEATURES],
     popular: false,
     order: 0,
   },
@@ -28,7 +37,7 @@ const DEFAULT_PLANS = [
     price: 10,
     yearlyPrice: 100,
     productLimit: 200,
-    features: ["Up to 200 products", ...SHARED_FEATURES],
+    features: ["Up to 200 products", ...CORE_FEATURES, ...PAID_FEATURES],
     popular: false,
     order: 1,
   },
@@ -38,7 +47,7 @@ const DEFAULT_PLANS = [
     price: 20,
     yearlyPrice: 200,
     productLimit: 450,
-    features: ["Up to 450 products", ...SHARED_FEATURES],
+    features: ["Up to 450 products", ...CORE_FEATURES, ...PAID_FEATURES],
     popular: true,
     order: 2,
   },
@@ -48,7 +57,7 @@ const DEFAULT_PLANS = [
     price: 50,
     yearlyPrice: 500,
     productLimit: 1500,
-    features: ["Up to 1,500 products", ...SHARED_FEATURES],
+    features: ["Up to 1,500 products", ...CORE_FEATURES, ...PAID_FEATURES],
     popular: false,
     order: 3,
   },

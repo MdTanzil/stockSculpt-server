@@ -1,7 +1,7 @@
 const Product = require("../../model/Product");
 const PurchaseOrder = require("../../model/PurchaseOrder");
-const Shop = require("../../model/Shop");
 const Supplier = require("../../model/Supplier");
+const { findCallerShop, hasRole } = require("../../utils/shopAccess");
 
 const round2 = (value) => Math.round(value * 100) / 100;
 
@@ -33,18 +33,22 @@ const validateItems = async (items, shopId) => {
   return { cleanItems, totalCost: round2(totalCost) };
 };
 
-const findCallerShop = async (req) => Shop.findOne({ owner: req.user._id });
-
 const populateOrder = (query) =>
   query.populate("supplier").populate("items.product");
 
 // Create a purchase order (draft, or ordered straight away). "received"
 // cannot be set here — stock only moves through the receive endpoint.
+// Staff+ only; viewers are read-only.
 const createPurchaseOrder = async (req, res) => {
   try {
-    const shop = await findCallerShop(req);
+    const { shop, role } = await findCallerShop(req.user._id);
     if (!shop) {
       return res.status(403).json({ message: "You don't have a shop" });
+    }
+    if (!hasRole(role, "staff")) {
+      return res
+        .status(403)
+        .json({ message: "Viewers cannot add purchase orders." });
     }
 
     const status = req.body.status || "draft";
@@ -89,7 +93,7 @@ const createPurchaseOrder = async (req, res) => {
 // an empty list, not an error — the client shows its empty state.
 const getPurchaseOrders = async (req, res) => {
   try {
-    const shop = await findCallerShop(req);
+    const { shop } = await findCallerShop(req.user._id);
     if (!shop) return res.json([]);
     const orders = await populateOrder(
       PurchaseOrder.find({ shop: shop._id }).sort({ createdAt: -1 })
@@ -134,10 +138,12 @@ const updatePurchaseOrder = async (req, res) => {
       });
     }
 
-    const shop = await findCallerShop(req);
+    // Validate against the ORDER's shop (resolved by the middleware), not
+    // the caller's own shop — a user can own one shop and staff another.
+    const shopId = req.shop ? req.shop._id : order.shop;
     if (req.body.supplier !== undefined) {
       const supplier = await Supplier.findById(req.body.supplier);
-      if (!supplier || supplier.shop.toString() !== shop._id.toString()) {
+      if (!supplier || supplier.shop.toString() !== shopId.toString()) {
         return res
           .status(400)
           .json({ error: "Supplier not found in your shop." });
@@ -147,7 +153,7 @@ const updatePurchaseOrder = async (req, res) => {
     if (req.body.items !== undefined) {
       const { cleanItems, totalCost } = await validateItems(
         req.body.items,
-        shop._id
+        shopId
       );
       order.items = cleanItems;
       order.totalCost = totalCost;

@@ -64,64 +64,85 @@ Admin-only routes also require the `admin` role.
 
 | Method & path | Auth | Purpose |
 |---|---|---|
-| `GET /api/shop/user` | User | Get the current user's shop |
+| `GET /api/shop/user` | User | Get the caller's shop (owned, else first staff shop) — includes the caller's `role` |
 | `GET /api/shop` | Admin | List all shops |
 | `POST /api/shop` | User | Create a shop |
-| `GET /api/shop/:id` | Owner | Get one shop |
+| `GET /api/shop/:id` | Team member | Get one shop |
 | `PUT /api/shop/:id` | Owner | Update a shop |
 | `PUT /api/shop/:id/plan` | Admin | Change a shop's subscription plan (`free` / `premium`) |
 | `DELETE /api/shop/:id` | Owner | Delete a shop |
-| `GET /api/shop/:id/products` | Owner | List a shop's products |
-| `GET /api/shop/:id/orders` | Owner | List a shop's orders |
+| `GET /api/shop/:id/products` | Team member | List a shop's products |
+| `GET /api/shop/:id/orders` | Team member | List a shop's orders |
 
 A shop's `subscriptionPlan` can only be changed through
 `PUT /api/shop/:id/plan` (admin only). The create and update endpoints strip
 `subscriptionPlan` from the request body, so members can never upgrade
 themselves.
 
+### Shop staff — `/api/shop/:id/members`
+
+Staff roles, weakest to strongest: **viewer** (read-only), **staff** (add
+and edit products, orders, suppliers and purchase orders; cannot delete),
+**manager** (everything except staff management and shop settings),
+**owner** (everything). The owner is not a member record — ownership comes
+from the shop. Platform admins bypass shop checks as before.
+
+| Method & path | Auth | Purpose |
+|---|---|---|
+| `GET /api/shop/:id/members` | Owner | List the team (owner + staff members) |
+| `POST /api/shop/:id/members` | Owner | Add a staff member by email (`{email, role}`) |
+| `PUT /api/shop/:id/members/:memberId` | Owner | Change a member's role |
+| `DELETE /api/shop/:id/members/:memberId` | Owner | Remove a staff member (their account is untouched) |
+
+Adding a member requires the person to already have an account — no
+invitation email is sent (there is no email service yet). Once added, the
+shop appears in their dashboard when they sign in. The role levels are
+enforced in `middlewares/shopRole.js` (`requireShopRole` /
+`requireResourceRole`) with the shared helpers in `utils/shopAccess.js`.
+
 ### Products — `/api/products`
 
 | Method & path | Auth | Purpose |
 |---|---|---|
-| `POST /api/products` | User | Create a product |
+| `POST /api/products` | Staff+ | Create a product |
 | `GET /api/products` | User | List products |
 | `GET /api/products/:id` | User | Get one product |
-| `PUT /api/products/:id` | Owner | Update a product |
-| `DELETE /api/products/:id` | Owner | Delete a product |
+| `PUT /api/products/:id` | Staff+ | Update a product |
+| `DELETE /api/products/:id` | Manager+ | Delete a product |
 
 ### Orders — `/api/order`
 
 | Method & path | Auth | Purpose |
 |---|---|---|
-| `POST /api/order` | User | Create an order |
+| `POST /api/order` | Staff+ | Create an order |
 | `GET /api/order` | User | List orders |
 | `GET /api/order/:id` | User | Get one order |
-| `PUT /api/order/:id` | Access check | Update an order (status etc.) |
-| `DELETE /api/order/:id` | Access check | Delete an order |
+| `PUT /api/order/:id` | Staff+ | Update an order (status etc.) |
+| `DELETE /api/order/:id` | Manager+ | Delete an order |
 
-The access check allows the shop owner or an admin; if the order's shop
-no longer exists, only an admin may update or delete it.
+The role check allows the required shop role or a platform admin; if the
+order's shop no longer exists, only an admin may update or delete it.
 
 ### Suppliers — `/api/suppliers`
 
 | Method & path | Auth | Purpose |
 |---|---|---|
-| `POST /api/suppliers` | User | Create a supplier for your shop |
+| `POST /api/suppliers` | Staff+ | Create a supplier for your shop |
 | `GET /api/suppliers` | User | List your shop's suppliers |
-| `GET /api/suppliers/:id` | Access check | Get one supplier |
-| `PUT /api/suppliers/:id` | Access check | Update a supplier |
-| `DELETE /api/suppliers/:id` | Access check | Delete a supplier (blocked while purchase orders reference it) |
+| `GET /api/suppliers/:id` | Team member | Get one supplier |
+| `PUT /api/suppliers/:id` | Staff+ | Update a supplier |
+| `DELETE /api/suppliers/:id` | Manager+ | Delete a supplier (blocked while purchase orders reference it) |
 
 ### Purchase orders — `/api/purchase-orders`
 
 | Method & path | Auth | Purpose |
 |---|---|---|
-| `POST /api/purchase-orders` | User | Create a purchase order (draft or ordered) |
+| `POST /api/purchase-orders` | Staff+ | Create a purchase order (draft or ordered) |
 | `GET /api/purchase-orders` | User | List your shop's purchase orders |
-| `GET /api/purchase-orders/:id` | Access check | Get one purchase order |
-| `PUT /api/purchase-orders/:id` | Access check | Update a draft/ordered purchase order |
-| `POST /api/purchase-orders/:id/receive` | Access check | Receive an ordered PO — adds quantities to stock |
-| `DELETE /api/purchase-orders/:id` | Access check | Delete a purchase order (received orders cannot be deleted) |
+| `GET /api/purchase-orders/:id` | Team member | Get one purchase order |
+| `PUT /api/purchase-orders/:id` | Staff+ | Update a draft/ordered purchase order |
+| `POST /api/purchase-orders/:id/receive` | Staff+ | Receive an ordered PO — adds quantities to stock |
+| `DELETE /api/purchase-orders/:id` | Manager+ | Delete a purchase order (received orders cannot be deleted) |
 
 Purchase order lifecycle: `draft` → `ordered` → `received`, or `canceled`
 from draft/ordered. The total cost is always computed server-side from the
@@ -140,7 +161,8 @@ orders cannot be edited.
 | `GET /api/reports/sales-by-month` | User | Monthly revenue, order and unit counts |
 | `GET /api/reports/inventory` | User | Current inventory valuation with stock status |
 
-All report endpoints are read-only and scoped to the caller's shop. Sales
+All report endpoints are read-only and scoped to the caller's shop — any
+team member (viewer included) can view them. Sales
 figures count **completed orders only**. The sales endpoints accept
 `?from=YYYY-MM-DD&to=YYYY-MM-DD` (invalid dates return 400); without a range
 the monthly report covers the last 12 months. Per-product and per-category
@@ -185,19 +207,28 @@ environment variables above must be set in the Vercel project.
   a token for that account. Proper fix: verify the Firebase ID token
   server-side with `firebase-admin` (needs the Firebase service-account
   key in Vercel env vars).
+- Staff invites send no email (no email service yet) — the person must
+  already have an account, and the shop appears in their dashboard once
+  added. A user who is staff in several shops works in the first
+  membership found.
+- The old per-resource ownership middlewares
+  (`checkShopOwnership`, `checkProductOwnership`, `checkOrderAccess`,
+  `checkSupplierAccess`, `checkPurchaseOrderAccess`) are unused since the
+  role middleware replaced them; they remain as dead files.
 
 ## Project structure
 
 ```
 config/       # CORS options
-controllers/  # Route handlers (auth, user, shop, product, order,
-              # supplier, purchase order, report, subscription, admin)
+controllers/  # Route handlers (auth, user, shop, shop member, product,
+              # order, supplier, purchase order, report, subscription,
+              # admin)
 db/           # MongoDB connection
-middlewares/  # JWT auth, role checks, ownership checks
-model/        # Mongoose models (User, Shop, Product, Order, Supplier,
-              # PurchaseOrder, Subscription)
+middlewares/  # JWT auth, role checks, shop role checks
+model/        # Mongoose models (User, Shop, ShopMember, Product, Order,
+              # Supplier, PurchaseOrder, Subscription)
 routes/       # Express routers, mounted under /api
-utils/        # Token helpers
+utils/        # Token helpers, shop access helpers
 index.js      # App entry point (also the Vercel function)
 vercel.json   # Vercel deployment config
 ```

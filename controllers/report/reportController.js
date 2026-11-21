@@ -1,12 +1,10 @@
 const Order = require("../../model/Order");
 const Product = require("../../model/Product");
-const Shop = require("../../model/Shop");
+const { findCallerShop } = require("../../utils/shopAccess");
 
 const LOW_STOCK_LIMIT = 5;
 
 const round2 = (value) => Math.round(value * 100) / 100;
-
-const findCallerShop = async (req) => Shop.findOne({ owner: req.user._id });
 
 // Parse ?from=YYYY-MM-DD&to=YYYY-MM-DD into UTC day boundaries. Throws an
 // Error on an invalid date string; missing bounds mean "no limit".
@@ -62,7 +60,7 @@ const getSummary = async (req, res) => {
   if (!range) return;
   const { from, to } = range;
   try {
-    const shop = await findCallerShop(req);
+    const { shop } = await findCallerShop(req.user._id);
     if (!shop) return res.json(emptySummary);
 
     const [orders, products] = await Promise.all([
@@ -122,7 +120,7 @@ const getSalesByProduct = async (req, res) => {
   if (!range) return;
   const { from, to } = range;
   try {
-    const shop = await findCallerShop(req);
+    const { shop } = await findCallerShop(req.user._id);
     if (!shop) return res.json([]);
 
     const [orders, products] = await Promise.all([
@@ -177,7 +175,7 @@ const getSalesByCategory = async (req, res) => {
   if (!range) return;
   const { from, to } = range;
   try {
-    const shop = await findCallerShop(req);
+    const { shop } = await findCallerShop(req.user._id);
     if (!shop) return res.json([]);
 
     const [orders, products] = await Promise.all([
@@ -232,7 +230,7 @@ const getSalesByMonth = async (req, res) => {
   if (!range) return;
   const { from, to } = range;
   try {
-    const shop = await findCallerShop(req);
+    const { shop } = await findCallerShop(req.user._id);
     if (!shop) return res.json([]);
 
     const now = new Date();
@@ -302,7 +300,7 @@ const getSalesByMonth = async (req, res) => {
 // stock status (out of stock / low / ok). Point-in-time — no date range.
 const getInventory = async (req, res) => {
   try {
-    const shop = await findCallerShop(req);
+    const { shop } = await findCallerShop(req.user._id);
     if (!shop) {
       return res.json({
         items: [],

@@ -1,6 +1,7 @@
 const Order = require("../../model/Order");
 const Product = require("../../model/Product");
 const Shop = require("../../model/Shop");
+const { findCallerShop } = require("../../utils/shopAccess");
 
 // Create a new shop
 const createShop = async (req, res) => {
@@ -28,30 +29,20 @@ const getShops = async (req, res) => {
   }
 };
 
-// Get a shop by ID
+// Get a shop by ID (access checked by middleware: any team member)
 const getShop = async (req, res) => {
-  const shop = await Shop.findById(req.params.id);
-
-  if (!shop) return res.status(404).json({ message: "Shop not found" });
-
-  if (
-    shop.owner.toString() !== req.user._id.toString() &&
-    req.user.role !== "admin"
-  ) {
-    return res.status(403).json({ message: "Access denied" });
-  }
-
-  res.json(shop);
+  res.json(req.shop);
 };
 
-// Get a shop by user id
+// Get the caller's shop: the shop they own, else the first shop they are
+// a staff member of. The response carries the caller's `role` in that shop
+// ("owner" / "manager" / "staff" / "viewer") so the client can gate its UI.
+// No shop at all means null, as before.
 const getShopByUserID = async (req, res) => {
   try {
-    const userId = req.user._id; // Convert string to ObjectId
-
-    const shop = await Shop.findOne({ owner: userId });
-
-    res.status(200).json(shop);
+    const { shop, role } = await findCallerShop(req.user._id);
+    if (!shop) return res.status(200).json(null);
+    res.status(200).json({ ...shop.toObject(), role });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

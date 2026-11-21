@@ -12,29 +12,31 @@ const {
   getShopByUserID,
 } = require("../controllers/shop/shopController");
 const { authenticateUser } = require("../middlewares/authMiddleware");
-const {
-  checkShopOwnership,
-} = require("../middlewares/checkShopOwnershipMiddleware");
+const { requireShopRole } = require("../middlewares/shopRole");
 const { authorizeRoles } = require("../middlewares/roleMiddleware");
 
-router.get("/user", authenticateUser, getShopByUserID); // Get a shops by user Id
+router.get("/user", authenticateUser, getShopByUserID); // Get the caller's shop (owned or staff)
 router.get("/", authenticateUser, authorizeRoles(["admin"]), getShops); // Get all shops
 router.post("/", authenticateUser, createShop); // Create shop
-router.get("/:id", authenticateUser, checkShopOwnership, getShop); // Get a shops
-
-router.put("/:id", authenticateUser, checkShopOwnership, updateShop); // Update shop by ID
+router.get("/:id", authenticateUser, requireShopRole("viewer"), getShop); // Get a shop
+router.put("/:id", authenticateUser, requireShopRole("owner"), updateShop); // Update shop by ID (owner only)
 router.put(
   "/:id/plan",
   authenticateUser,
   authorizeRoles(["admin"]),
   updateShopPlan
 ); // Update a shop's subscription plan (admin only)
-router.delete("/:id", authenticateUser, checkShopOwnership, deleteShop); // Delete shop by ID
-router.get("/:id/orders", authenticateUser, checkShopOwnership, getShopOrders); // Get all shop orders
+router.delete("/:id", authenticateUser, requireShopRole("owner"), deleteShop); // Delete shop by ID (owner only)
+router.get(
+  "/:id/orders",
+  authenticateUser,
+  requireShopRole("viewer"),
+  getShopOrders
+); // Get all shop orders
 router.get(
   "/:id/products",
   authenticateUser,
-  checkShopOwnership,
+  requireShopRole("viewer"),
   getShopProducts
 ); // Get all shop products
 

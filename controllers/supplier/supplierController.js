@@ -1,6 +1,6 @@
 const PurchaseOrder = require("../../model/PurchaseOrder");
-const Shop = require("../../model/Shop");
 const Supplier = require("../../model/Supplier");
+const { findCallerShop, hasRole } = require("../../utils/shopAccess");
 
 const pickFields = (body) => ({
   name: body.name,
@@ -11,12 +11,17 @@ const pickFields = (body) => ({
   notes: body.notes,
 });
 
-// Create a new supplier for the caller's shop
+// Create a new supplier for the caller's shop (staff+; viewers read-only)
 const createSupplier = async (req, res) => {
   try {
-    const shop = await Shop.findOne({ owner: req.user._id });
+    const { shop, role } = await findCallerShop(req.user._id);
     if (!shop) {
       return res.status(403).json({ message: "You don't have a shop" });
+    }
+    if (!hasRole(role, "staff")) {
+      return res
+        .status(403)
+        .json({ message: "Viewers cannot add suppliers." });
     }
 
     const supplier = new Supplier({
@@ -34,7 +39,7 @@ const createSupplier = async (req, res) => {
 // empty list, not an error — the client shows its empty state.
 const getSuppliers = async (req, res) => {
   try {
-    const shop = await Shop.findOne({ owner: req.user._id });
+    const { shop } = await findCallerShop(req.user._id);
     if (!shop) return res.json([]);
     const suppliers = await Supplier.find({ shop: shop._id }).sort({
       createdAt: -1,

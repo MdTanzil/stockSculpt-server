@@ -1,13 +1,17 @@
 const Order = require("../../model/Order");
-const Shop = require("../../model/Shop");
+const { findCallerShop, hasRole } = require("../../utils/shopAccess");
 
 // Create a new order
 const createOrder = async (req, res) => {
   try {
-    const shop = await Shop.findOne({ owner: req.user._id });
+    // The caller's shop (owned or staff). Viewers are read-only.
+    const { shop, role } = await findCallerShop(req.user._id);
 
     if (!shop) {
       return res.status(403).json({ message: "You don't have a shop" });
+    }
+    if (!hasRole(role, "staff")) {
+      return res.status(403).json({ message: "Viewers cannot add orders." });
     }
     // Create product
     const order = new Order({

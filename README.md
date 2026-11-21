@@ -124,6 +124,26 @@ line items (quantity × unit cost). Receiving is only possible from
 deleted are skipped and reported in the response. Received and canceled
 orders cannot be edited.
 
+### Reports — `/api/reports`
+
+| Method & path | Auth | Purpose |
+|---|---|---|
+| `GET /api/reports/summary` | User | KPI summary: revenue, order counts, units sold, stock value |
+| `GET /api/reports/sales-by-product` | User | Per-product units sold and revenue (all shop products) |
+| `GET /api/reports/sales-by-category` | User | Per-category units sold and revenue |
+| `GET /api/reports/sales-by-month` | User | Monthly revenue, order and unit counts |
+| `GET /api/reports/inventory` | User | Current inventory valuation with stock status |
+
+All report endpoints are read-only and scoped to the caller's shop. Sales
+figures count **completed orders only**. The sales endpoints accept
+`?from=YYYY-MM-DD&to=YYYY-MM-DD` (invalid dates return 400); without a range
+the monthly report covers the last 12 months. Per-product and per-category
+revenue uses the product's **current** price — orders don't store historical
+prices — so it is an approximation when prices changed; the summary and
+monthly revenue use each order's stored `totalPrice` and are exact. Items
+whose product was deleted are skipped in the per-product/category breakdowns.
+The inventory report is point-in-time and ignores the date range.
+
 ### Subscriptions — `/api/subscriptions`
 
 | Method & path | Auth | Purpose |
@@ -165,7 +185,7 @@ environment variables above must be set in the Vercel project.
 ```
 config/       # CORS options
 controllers/  # Route handlers (auth, user, shop, product, order,
-              # supplier, purchase order, subscription, admin)
+              # supplier, purchase order, report, subscription, admin)
 db/           # MongoDB connection
 middlewares/  # JWT auth, role checks, ownership checks
 model/        # Mongoose models (User, Shop, Product, Order, Supplier,

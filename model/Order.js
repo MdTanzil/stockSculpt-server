@@ -32,6 +32,10 @@ const orderSchema = new mongoose.Schema({
     enum: ["manual", "pos"],
     default: "manual",
   },
+  // The staff member who created the order / made the sale. Shown on the
+  // invoice and the POS receipt as "Prepared by". Orders created before
+  // this field existed have no value — the UI omits the line for them.
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   createdAt: { type: Date, default: Date.now },
 });
 

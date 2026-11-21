@@ -14,10 +14,12 @@ const createOrder = async (req, res) => {
     if (!hasRole(role, "staff")) {
       return res.status(403).json({ message: "Viewers cannot add orders." });
     }
-    // Create product
+    // Create product. createdBy is set server-side, after the spread, so a
+    // client cannot claim another staff member prepared the order.
     const order = new Order({
       ...req.body,
       shop: shop._id,
+      createdBy: req.user._id,
     });
 
     await order.save();
@@ -34,7 +36,8 @@ const getOrders = async (req, res) => {
   try {
     const orders = await Order.find()
       .populate("shop")
-      .populate("products.product");
+      .populate("products.product")
+      .populate("createdBy", "name email");
     res.json(orders);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -46,7 +49,8 @@ const getOrder = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
       .populate("shop")
-      .populate("products.product");
+      .populate("products.product")
+      .populate("createdBy", "name email");
     if (!order) return res.status(404).json({ error: "Order not found" });
     res.json(order);
   } catch (error) {
@@ -159,11 +163,13 @@ const createPOSSale = async (req, res) => {
       orderStatus: "completed",
       paymentMethod,
       source: "pos",
+      createdBy: req.user._id,
     });
     await order.save();
     const populated = await Order.findById(order._id)
       .populate("shop")
-      .populate("products.product");
+      .populate("products.product")
+      .populate("createdBy", "name email");
     res.status(201).json(populated);
   } catch (error) {
     res.status(500).json({ error: error.message });

@@ -143,6 +143,12 @@ from current prices, and creates a **completed** order with
 `source: "pos"` and the recorded payment method (no payment is processed).
 The back-office `POST /api/order` does NOT check or decrement stock.
 
+Every order records who created it (`createdBy`, set server-side from
+the caller's account — a client cannot claim another staff member
+prepared an order). Order reads populate it as `{name, email}` so the
+invoice and the POS receipt can show "Prepared by". Orders created
+before this field existed have no value.
+
 ### Suppliers — `/api/suppliers`
 
 | Method & path | Auth | Purpose |

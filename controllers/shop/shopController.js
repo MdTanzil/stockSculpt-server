@@ -127,7 +127,8 @@ const getShopOrders = async (req, res) => {
     // Find orders for the shop
     const orders = await Order.find({ shop: shopId })
       .populate("shop")
-      .populate("products.product");
+      .populate("products.product")
+      .populate("createdBy", "name email");
 
     res.json(orders);
   } catch (error) {

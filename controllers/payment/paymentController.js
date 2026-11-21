@@ -71,6 +71,15 @@ const createPaymentIntent = async (req, res) => {
 // premium plan on the caller's shop for one month (or one year).
 const recordPayment = async (req, res) => {
   try {
+    // Without the secret key the payment cannot be verified with
+    // Stripe — and an unverified payment must never activate a plan,
+    // or anyone could claim premium with a made-up transaction id.
+    if (!stripe) {
+      return res.status(503).json({
+        error:
+          "Payments are not set up yet. The shop owner needs to add the Stripe secret key.",
+      });
+    }
     const { email, price, transactionId, plan, interval } = req.body;
     if (!transactionId || !Number.isFinite(Number(price))) {
       return res
@@ -87,15 +96,10 @@ const recordPayment = async (req, res) => {
     }
 
     // Verify with Stripe that this payment actually succeeded before
-    // trusting the client. (Skipped only when Stripe is not configured,
-    // in which case no client could have confirmed a payment anyway.)
-    if (stripe) {
-      const intent = await stripe.paymentIntents.retrieve(transactionId);
-      if (intent.status !== "succeeded") {
-        return res
-          .status(400)
-          .json({ error: "This payment did not succeed." });
-      }
+    // trusting the client.
+    const intent = await stripe.paymentIntents.retrieve(transactionId);
+    if (intent.status !== "succeeded") {
+      return res.status(400).json({ error: "This payment did not succeed." });
     }
 
     const { shop } = await findCallerShop(req.user._id);

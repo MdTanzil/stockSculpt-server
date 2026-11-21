@@ -2,8 +2,6 @@ const Order = require("../../model/Order");
 const Product = require("../../model/Product");
 const Shop = require("../../model/Shop");
 const User = require("../../model/User");
-const models = require("../../model");
-const { getIndexErrors } = require("../../db");
 
 // Admin overview stats (GET /api/admin/state)
 const getAdminState = async (req, res) => {
@@ -39,24 +37,4 @@ const getAdminState = async (req, res) => {
   }
 };
 
-// TEMPORARY diagnostic (GET /api/admin/indexes, admin only): list every
-// collection's indexes plus any index-creation errors recorded at startup.
-// Added to diagnose the missing unique barcode index — remove once the
-// issue is resolved.
-const getIndexes = async (req, res) => {
-  try {
-    const indexes = {};
-    for (const [name, model] of Object.entries(models)) {
-      try {
-        indexes[name] = await model.collection.getIndexes();
-      } catch (error) {
-        indexes[name] = { error: error.message };
-      }
-    }
-    res.json({ indexes, indexErrors: getIndexErrors() });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-module.exports = { getAdminState, getIndexes };
+module.exports = { getAdminState };

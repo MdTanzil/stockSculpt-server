@@ -111,10 +111,15 @@ enforced in `middlewares/shopRole.js` (`requireShopRole` /
 | `PUT /api/products/:id` | Staff+ | Update a product |
 | `DELETE /api/products/:id` | Manager+ | Delete a product |
 
-Products have an optional `barcode` field, unique per shop (sparse index,
-so products without a barcode don't collide). Creating or updating a
-product with a barcode another product in the same shop already uses
-returns 400; sending an empty barcode clears it.
+Products have an optional `barcode` field, unique per shop (partial index
+on string barcodes, so products without a barcode don't collide —
+a sparse compound index does NOT work here: it still includes documents
+that have the shop field, with the missing barcode treated as null).
+Creating or updating a product with a barcode another product in the same
+shop already uses returns 400; sending an empty barcode clears it.
+Indexes are created explicitly at startup (`db/index.js` runs
+`createIndexes()` for every model after connecting) rather than relying
+on Mongoose's background auto-indexing, whose failures are silent.
 
 ### Orders — `/api/order`
 

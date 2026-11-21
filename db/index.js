@@ -4,19 +4,12 @@ require("dotenv").config();
 const models = require("../model");
 
 // Memoized connection promise: connect once, then create every model's
-// indexes. Mongoose's background auto-indexing is unreliable on serverless
-// — the function can freeze before it finishes, and once started it is
-// never retried on that instance — which left the unique barcode index
-// uncreated (duplicate barcodes were silently accepted until this fix).
-// createIndexes is a no-op for indexes that already exist with the same
-// spec, so this is cheap on warm instances.
+// indexes explicitly (rather than relying on Mongoose's background
+// auto-indexing, which runs fire-and-forget and hides failures — a failed
+// barcode-index build went unnoticed until a smoke test caught duplicate
+// barcodes being accepted). createIndexes is a no-op for indexes that
+// already exist with the same spec, so this is cheap on warm instances.
 let ready = null;
-
-// Index-creation failures, kept for the temporary admin diagnostics
-// endpoint (GET /api/admin/indexes). Remove both once the barcode-index
-// issue is resolved.
-const indexErrors = [];
-const getIndexErrors = () => indexErrors;
 
 async function dbConnect() {
   if (!ready) {
@@ -34,10 +27,6 @@ async function dbConnect() {
               `❌ Index creation failed for ${model.modelName}:`,
               indexError.message
             );
-            indexErrors.push({
-              model: model.modelName,
-              message: indexError.message,
-            });
           }
         }
       } catch (error) {
@@ -48,4 +37,4 @@ async function dbConnect() {
   return ready;
 }
 
-module.exports = { dbConnect, getIndexErrors };
+module.exports = { dbConnect };

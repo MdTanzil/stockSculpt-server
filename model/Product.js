@@ -10,12 +10,24 @@ const productSchema = new mongoose.Schema({
   stock: { type: Number, required: true },
   category: { type: String },
   // Optional barcode (EAN/UPC/QR content). Unique per shop so a scan
-  // always finds one product; sparse so products without a barcode
-  // don't collide. Clear it by sending an empty string (see controller).
+  // always finds one product. Clear it by sending an empty string
+  // (see controller).
   barcode: { type: String, trim: true },
   createdAt: { type: Date, default: Date.now },
 });
 
-productSchema.index({ shop: 1, barcode: 1 }, { unique: true, sparse: true });
+// Unique per shop, but only for products that actually HAVE a barcode.
+// NOTE: do NOT use `sparse` here — a sparse compound index still includes
+// documents that have ANY indexed field (every product has `shop`), with
+// the missing barcode treated as null, so the index build fails with a
+// duplicate-key error on the 8 barcode-less demo products. A partial
+// index excludes them entirely (missing or null barcodes are not strings).
+productSchema.index(
+  { shop: 1, barcode: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { barcode: { $type: "string" } },
+  }
+);
 
 module.exports = mongoose.model("Product", productSchema);

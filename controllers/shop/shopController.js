@@ -73,15 +73,39 @@ const updateShop = async (req, res) => {
 // request body, so members can never upgrade themselves.
 const updateShopPlan = async (req, res) => {
   try {
+    const shop = await Shop.findById(req.params.id);
+    if (!shop) return res.status(404).json({ message: "Shop not found" });
+
+    // Preferred: { plan: "<plan name>" } — the plan must exist in the
+    // plans collection. A $0 plan means free, any priced plan means
+    // premium, so subscriptionPlan and planName always agree.
+    if (req.body.plan !== undefined) {
+      const Plan = require("../../model/Plan");
+      const plan = await Plan.findOne({ name: req.body.plan });
+      if (!plan) {
+        return res.status(404).json({ error: "Plan not found." });
+      }
+      shop.planName = plan.name;
+      shop.subscriptionPlan = plan.price === 0 ? "free" : "premium";
+      await shop.save();
+      return res.json(shop);
+    }
+
+    // Legacy: { subscriptionPlan: "free" | "premium" }. Kept so older
+    // clients keep working; planName follows when it can.
     const { subscriptionPlan } = req.body;
     if (!["free", "premium"].includes(subscriptionPlan)) {
       return res.status(400).json({
-        error: "Invalid subscription plan. Must be 'free' or 'premium'.",
+        error: "Invalid plan. Send a plan name, or 'free' / 'premium'.",
       });
     }
-    const shop = await Shop.findById(req.params.id);
-    if (!shop) return res.status(404).json({ message: "Shop not found" });
     shop.subscriptionPlan = subscriptionPlan;
+    if (subscriptionPlan === "free") {
+      shop.planName = "Free";
+    } else if (!shop.planName || shop.planName === "Free") {
+      // Paid, but no specific plan was named — display only.
+      shop.planName = "Premium";
+    }
     await shop.save();
     res.json(shop);
   } catch (error) {

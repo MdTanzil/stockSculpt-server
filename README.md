@@ -70,7 +70,7 @@ Admin-only routes also require the `admin` role.
 | `POST /api/shop` | User | Create a shop |
 | `GET /api/shop/:id` | Team member | Get one shop |
 | `PUT /api/shop/:id` | Owner | Update a shop |
-| `PUT /api/shop/:id/plan` | Admin | Change a shop's subscription plan (`free` / `premium`) |
+| `PUT /api/shop/:id/plan` | Admin | Change a shop's plan by name (`{ plan: "Starter" }` — must match a plan in the plans collection; a $0 plan sets `free`, a priced plan sets `premium`) |
 | `DELETE /api/shop/:id` | Owner | Delete a shop |
 | `GET /api/shop/:id/products` | Team member | List a shop's products |
 | `GET /api/shop/:id/orders` | Team member | List a shop's orders |
@@ -78,7 +78,10 @@ Admin-only routes also require the `admin` role.
 A shop's `subscriptionPlan` can only be changed through
 `PUT /api/shop/:id/plan` (admin only). The create and update endpoints strip
 `subscriptionPlan` from the request body, so members can never upgrade
-themselves.
+themselves. The shop also carries `planName` (e.g. "Starter") — the
+specific plan it is on; `subscriptionPlan` stays the simple free/paid
+flag, and the two are always set together by the plan endpoint (and by a
+successful payment).
 
 ### Shop staff — `/api/shop/:id/members`
 

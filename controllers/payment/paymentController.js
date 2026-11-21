@@ -141,6 +141,7 @@ const recordPayment = async (req, res) => {
         { upsert: true, new: true }
       );
       shop.subscriptionPlan = "premium";
+      if (plan) shop.planName = plan;
       await shop.save();
     }
 

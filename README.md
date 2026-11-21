@@ -97,6 +97,18 @@ serverless backend, so the check runs lazily — every read of a shop
 (`findCallerShop`, `getShop`, `getShops`) applies it, so any shop past
 its grace period is already Free by the time anyone sees it.
 
+**Paid features and the product limit:** the Free plan covers the
+core — products (up to its limit), orders, the dashboard and invoices.
+Point of sale, barcode scanning, reports, suppliers, purchase orders
+and staff roles are paid features: their endpoints require a premium
+plan (`middlewares/requirePremium.js`, 403 `PREMIUM_REQUIRED`
+otherwise). Creating a product is also limited by the shop's plan:
+`POST /api/products` counts the shop's products against its plan's
+`productLimit` and rejects with 403 `PRODUCT_LIMIT_REACHED` when the
+shop is at its limit. Nothing is ever deleted on a downgrade — a shop
+over its limit keeps all its products and can still sell them; it just
+cannot add new ones until it is back under the limit or upgrades.
+
 ### Shop staff — `/api/shop/:id/members`
 
 Staff roles, weakest to strongest: **viewer** (read-only), **staff** (add

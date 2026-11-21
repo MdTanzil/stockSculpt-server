@@ -10,10 +10,11 @@ const {
 } = require("../controllers/order/orderController");
 const Order = require("../model/Order");
 const { authenticateUser } = require("../middlewares/authMiddleware");
+const { requirePremium } = require("../middlewares/requirePremium");
 const { requireResourceRole } = require("../middlewares/shopRole");
 
 router.post("/", authenticateUser, createOrder); // Create order (staff+)
-router.post("/pos", authenticateUser, createPOSSale); // Counter sale: checks stock, decrements it, records payment (staff+)
+router.post("/pos", authenticateUser, requirePremium, createPOSSale); // Counter sale: checks stock, decrements it, records payment (staff+)
 router.get("/", authenticateUser, getOrders); // Get all orders
 router.get("/:id", authenticateUser, getOrder); // Get an order by ID
 router.put(

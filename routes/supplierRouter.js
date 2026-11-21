@@ -8,25 +8,27 @@ const {
 } = require("../controllers/supplier/supplierController");
 const Supplier = require("../model/Supplier");
 const { authenticateUser } = require("../middlewares/authMiddleware");
+const { requirePremium } = require("../middlewares/requirePremium");
 const { requireResourceRole } = require("../middlewares/shopRole");
 
-router.post("/", authenticateUser, createSupplier); // Create supplier (staff+)
-router.get("/", authenticateUser, getSuppliers); // List own shop's suppliers
+// Suppliers are a paid feature: every route here needs a signed-in user
+// on a premium plan.
+router.use(authenticateUser, requirePremium);
+
+router.post("/", createSupplier); // Create supplier (staff+)
+router.get("/", getSuppliers); // List own shop's suppliers
 router.get(
   "/:id",
-  authenticateUser,
   requireResourceRole(Supplier, "viewer", "Supplier"),
   getSupplier
 ); // Get supplier by ID
 router.put(
   "/:id",
-  authenticateUser,
   requireResourceRole(Supplier, "staff", "Supplier"),
   updateSupplier
 ); // Update supplier by ID (staff+)
 router.delete(
   "/:id",
-  authenticateUser,
   requireResourceRole(Supplier, "manager", "Supplier"),
   deleteSupplier
 ); // Delete supplier by ID (manager+)

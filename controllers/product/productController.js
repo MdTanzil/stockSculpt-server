@@ -1,5 +1,6 @@
 const Product = require("../../model/Product");
 const { findCallerShop, hasRole } = require("../../utils/shopAccess");
+const { getPlanProductLimit } = require("../../utils/planLimits");
 
 // A discount price must be a real discount: a number >= 0 and below
 // the regular price. Returns an error string, or null when valid.
@@ -34,6 +35,18 @@ const createProduct = async (req, res) => {
       return res
         .status(403)
         .json({ message: "Viewers cannot add products." });
+    }
+
+    // The plan's product limit. Existing products are never removed —
+    // a shop over its limit (e.g. after a downgrade) simply cannot add
+    // more until it is back under the limit or upgrades.
+    const limit = await getPlanProductLimit(shop);
+    const count = await Product.countDocuments({ shop: shop._id });
+    if (count >= limit) {
+      return res.status(403).json({
+        error: `Your ${shop.planName || "Free"} plan allows up to ${limit} products. Remove some products or upgrade to add more.`,
+        code: "PRODUCT_LIMIT_REACHED",
+      });
     }
 
     // An empty barcode means "no barcode" — omit it so the sparse unique

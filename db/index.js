@@ -12,6 +12,12 @@ const models = require("../model");
 // spec, so this is cheap on warm instances.
 let ready = null;
 
+// Index-creation failures, kept for the temporary admin diagnostics
+// endpoint (GET /api/admin/indexes). Remove both once the barcode-index
+// issue is resolved.
+const indexErrors = [];
+const getIndexErrors = () => indexErrors;
+
 async function dbConnect() {
   if (!ready) {
     ready = (async () => {
@@ -28,6 +34,10 @@ async function dbConnect() {
               `❌ Index creation failed for ${model.modelName}:`,
               indexError.message
             );
+            indexErrors.push({
+              model: model.modelName,
+              message: indexError.message,
+            });
           }
         }
       } catch (error) {
@@ -38,4 +48,4 @@ async function dbConnect() {
   return ready;
 }
 
-module.exports = { dbConnect };
+module.exports = { dbConnect, getIndexErrors };

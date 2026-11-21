@@ -20,6 +20,12 @@ const shopSchema = new mongoose.Schema({
   // free/paid flag the rest of the app checks; planName is what the
   // admin picks in Manage Shops and what Settings shows.
   planName: { type: String, default: "Free" },
+  // The subscription's current period. Set together with the plan —
+  // by a payment (from its billing period) or by the admin (from the
+  // period they pick when assigning a plan). Null while the shop is on
+  // the Free plan, which never expires.
+  subscriptionStartDate: { type: Date, default: null },
+  subscriptionEndDate: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },
 });
 

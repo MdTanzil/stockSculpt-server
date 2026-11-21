@@ -70,7 +70,7 @@ Admin-only routes also require the `admin` role.
 | `POST /api/shop` | User | Create a shop |
 | `GET /api/shop/:id` | Team member | Get one shop |
 | `PUT /api/shop/:id` | Owner | Update a shop |
-| `PUT /api/shop/:id/plan` | Admin | Change a shop's plan by name (`{ plan: "Starter" }` — must match a plan in the plans collection; a $0 plan sets `free`, a priced plan sets `premium`) |
+| `PUT /api/shop/:id/plan` | Admin | Change a shop's plan by name (`{ plan: "Starter" }` — must match a plan in the plans collection; a $0 plan sets `free`, a priced plan sets `premium`). A paid plan also needs a period: `interval` `"monthly"` (default) or `"yearly"`, or an exact `endDate` — the shop's `subscriptionStartDate` / `subscriptionEndDate` are set from it; the Free plan has no dates |
 | `DELETE /api/shop/:id` | Owner | Delete a shop |
 | `GET /api/shop/:id/products` | Team member | List a shop's products |
 | `GET /api/shop/:id/orders` | Team member | List a shop's orders |
@@ -79,9 +79,13 @@ A shop's `subscriptionPlan` can only be changed through
 `PUT /api/shop/:id/plan` (admin only). The create and update endpoints strip
 `subscriptionPlan` from the request body, so members can never upgrade
 themselves. The shop also carries `planName` (e.g. "Starter") — the
-specific plan it is on; `subscriptionPlan` stays the simple free/paid
-flag, and the two are always set together by the plan endpoint (and by a
-successful payment).
+specific plan it is on — and `subscriptionStartDate` /
+`subscriptionEndDate`, the plan's current period (null on the Free plan,
+which never expires). `subscriptionPlan` stays the simple free/paid
+flag, and all four are always set together by the plan endpoint (and by
+a successful payment, which copies the period from the Subscription
+record it creates). The Subscription collection is the payment history;
+the Shop carries the live state the UI shows.
 
 ### Shop staff — `/api/shop/:id/members`
 

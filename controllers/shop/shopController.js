@@ -76,9 +76,12 @@ const updateShopPlan = async (req, res) => {
     const shop = await Shop.findById(req.params.id);
     if (!shop) return res.status(404).json({ message: "Shop not found" });
 
-    // Preferred: { plan: "<plan name>" } — the plan must exist in the
-    // plans collection. A $0 plan means free, any priced plan means
-    // premium, so subscriptionPlan and planName always agree.
+    // Preferred: { plan: "<plan name>", interval?, endDate? } — the plan
+    // must exist in the plans collection. A $0 plan means free, any
+    // priced plan means premium, so subscriptionPlan and planName always
+    // agree. A paid plan always gets a period: Monthly (default) or
+    // Yearly adds 1 or 12 months from today, or the admin can set an
+    // exact end date. The Free plan never expires (dates are null).
     if (req.body.plan !== undefined) {
       const Plan = require("../../model/Plan");
       const plan = await Plan.findOne({ name: req.body.plan });
@@ -87,6 +90,37 @@ const updateShopPlan = async (req, res) => {
       }
       shop.planName = plan.name;
       shop.subscriptionPlan = plan.price === 0 ? "free" : "premium";
+      if (plan.price === 0) {
+        shop.subscriptionStartDate = null;
+        shop.subscriptionEndDate = null;
+      } else {
+        const startDate = new Date();
+        let endDate;
+        if (req.body.endDate !== undefined) {
+          endDate = new Date(req.body.endDate);
+          if (
+            Number.isNaN(endDate.getTime()) ||
+            endDate <= startDate
+          ) {
+            return res.status(400).json({
+              error: "The end date must be a valid date in the future.",
+            });
+          }
+        } else {
+          const interval = req.body.interval || "monthly";
+          if (!["monthly", "yearly"].includes(interval)) {
+            return res.status(400).json({
+              error: "Invalid billing period. Must be 'monthly' or 'yearly'.",
+            });
+          }
+          endDate = new Date(startDate);
+          endDate.setMonth(
+            endDate.getMonth() + (interval === "yearly" ? 12 : 1)
+          );
+        }
+        shop.subscriptionStartDate = startDate;
+        shop.subscriptionEndDate = endDate;
+      }
       await shop.save();
       return res.json(shop);
     }
@@ -102,6 +136,8 @@ const updateShopPlan = async (req, res) => {
     shop.subscriptionPlan = subscriptionPlan;
     if (subscriptionPlan === "free") {
       shop.planName = "Free";
+      shop.subscriptionStartDate = null;
+      shop.subscriptionEndDate = null;
     } else if (!shop.planName || shop.planName === "Free") {
       // Paid, but no specific plan was named — display only.
       shop.planName = "Premium";

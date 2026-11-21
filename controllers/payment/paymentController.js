@@ -142,6 +142,10 @@ const recordPayment = async (req, res) => {
       );
       shop.subscriptionPlan = "premium";
       if (plan) shop.planName = plan;
+      // The shop carries the live period, so the owner can see their
+      // expiry date without a separate subscription lookup.
+      shop.subscriptionStartDate = startDate;
+      shop.subscriptionEndDate = endDate;
       await shop.save();
     }
 

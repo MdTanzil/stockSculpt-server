@@ -2,6 +2,7 @@ const router = require("express").Router();
 
 const {
   createOrder,
+  createPOSSale,
   getOrders,
   updateOrder,
   deleteOrder,
@@ -12,6 +13,7 @@ const { authenticateUser } = require("../middlewares/authMiddleware");
 const { requireResourceRole } = require("../middlewares/shopRole");
 
 router.post("/", authenticateUser, createOrder); // Create order (staff+)
+router.post("/pos", authenticateUser, createPOSSale); // Counter sale: checks stock, decrements it, records payment (staff+)
 router.get("/", authenticateUser, getOrders); // Get all orders
 router.get("/:id", authenticateUser, getOrder); // Get an order by ID
 router.put(

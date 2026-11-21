@@ -115,6 +115,7 @@ enforced in `middlewares/shopRole.js` (`requireShopRole` /
 | Method & path | Auth | Purpose |
 |---|---|---|
 | `POST /api/order` | Staff+ | Create an order |
+| `POST /api/order/pos` | Staff+ | Counter sale: checks stock, decrements it, creates a completed order |
 | `GET /api/order` | User | List orders |
 | `GET /api/order/:id` | User | Get one order |
 | `PUT /api/order/:id` | Staff+ | Update an order (status etc.) |
@@ -122,6 +123,14 @@ enforced in `middlewares/shopRole.js` (`requireShopRole` /
 
 The role check allows the required shop role or a platform admin; if the
 order's shop no longer exists, only an admin may update or delete it.
+
+A POS sale (`POST /api/order/pos`, body `{items: [{product, quantity}],
+paymentMethod: "cash" | "card"}`) validates every line against the
+caller's shop and current stock, decrements stock atomically per line
+(with rollback if a later line runs out), computes the total server-side
+from current prices, and creates a **completed** order with
+`source: "pos"` and the recorded payment method (no payment is processed).
+The back-office `POST /api/order` does NOT check or decrement stock.
 
 ### Suppliers — `/api/suppliers`
 

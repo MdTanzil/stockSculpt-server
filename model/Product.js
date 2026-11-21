@@ -7,6 +7,12 @@ const productSchema = new mongoose.Schema({
   rating: { type: Number, default: 4 },
   description: { type: String },
   price: { type: Number, required: true },
+  // Optional sale price. When set below `price`, customers pay this
+  // instead — POS totals, reports and receipts all use the effective
+  // price (see utils/effectivePrice.js). Must be >= 0 and below the
+  // regular price (validated in the controller); clear it by sending
+  // an empty string or null.
+  discountPrice: { type: Number, min: 0 },
   stock: { type: Number, required: true },
   category: { type: String },
   // Optional barcode (EAN/UPC/QR content). Unique per shop so a scan

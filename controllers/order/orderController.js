@@ -1,5 +1,6 @@
 const Order = require("../../model/Order");
 const Product = require("../../model/Product");
+const { effectivePrice } = require("../../utils/effectivePrice");
 const { findCallerShop, hasRole } = require("../../utils/shopAccess");
 
 // Create a new order
@@ -126,7 +127,8 @@ const createPOSSale = async (req, res) => {
         });
       }
       lines.push({ product, quantity });
-      totalPrice += (Number(product.price) || 0) * quantity;
+      // Discounted products sell at the discount price.
+      totalPrice += effectivePrice(product) * quantity;
     }
     totalPrice = Math.round(totalPrice * 100) / 100;
 

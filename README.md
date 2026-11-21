@@ -117,6 +117,14 @@ a sparse compound index does NOT work here: it still includes documents
 that have the shop field, with the missing barcode treated as null).
 Creating or updating a product with a barcode another product in the same
 shop already uses returns 400; sending an empty barcode clears it.
+
+Products also have an optional `discountPrice` (a sale price). When set
+below the regular `price`, customers pay the discount price instead —
+POS sale totals, report revenue and stock valuation all use the
+effective price (`utils/effectivePrice.js`; the client mirrors the
+rule in `src/utils/productPrice.js`). A discount price must be 0 or
+more and below the regular price, otherwise creating or updating the
+product returns 400; sending an empty discount price clears it.
 Indexes are created explicitly at startup (`db/index.js` runs
 `createIndexes()` for every model after connecting) rather than relying
 on Mongoose's background auto-indexing, whose failures are silent.
@@ -192,9 +200,10 @@ team member (viewer included) can view them. Sales
 figures count **completed orders only**. The sales endpoints accept
 `?from=YYYY-MM-DD&to=YYYY-MM-DD` (invalid dates return 400); without a range
 the monthly report covers the last 12 months. Per-product and per-category
-revenue uses the product's **current** price — orders don't store historical
-prices — so it is an approximation when prices changed; the summary and
-monthly revenue use each order's stored `totalPrice` and are exact. Items
+revenue uses the product's **current effective** price (the discount price
+when one is set) — orders don't store historical prices — so it is an
+approximation when prices changed; the summary and monthly revenue use
+each order's stored `totalPrice` and are exact. Items
 whose product was deleted are skipped in the per-product/category breakdowns.
 The inventory report is point-in-time and ignores the date range.
 

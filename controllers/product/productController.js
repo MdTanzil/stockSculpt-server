@@ -1,6 +1,27 @@
 const Product = require("../../model/Product");
 const { findCallerShop, hasRole } = require("../../utils/shopAccess");
 
+// A discount price must be a real discount: a number >= 0 and below
+// the regular price. Returns an error string, or null when valid.
+// An empty/missing value means "no discount" and is always valid.
+const discountError = (discountPrice, price) => {
+  if (
+    discountPrice === undefined ||
+    discountPrice === null ||
+    discountPrice === ""
+  ) {
+    return null;
+  }
+  const d = Number(discountPrice);
+  if (!Number.isFinite(d) || d < 0) {
+    return "Discount price must be 0 or more.";
+  }
+  if (Number(price) <= d) {
+    return "Discount price must be below the regular price.";
+  }
+  return null;
+};
+
 const createProduct = async (req, res) => {
   try {
     // The caller's shop (owned or staff). Viewers are read-only.
@@ -19,6 +40,16 @@ const createProduct = async (req, res) => {
     // index is not fed an empty string.
     if (typeof req.body.barcode === "string" && req.body.barcode.trim() === "") {
       delete req.body.barcode;
+    }
+
+    // An empty discount price means "no discount" — omit it, and a
+    // real discount must be below the regular price.
+    if (req.body.discountPrice === "" || req.body.discountPrice === null) {
+      delete req.body.discountPrice;
+    }
+    const badDiscount = discountError(req.body.discountPrice, req.body.price);
+    if (badDiscount) {
+      return res.status(400).json({ error: badDiscount });
     }
 
     // Create product
@@ -68,10 +99,30 @@ const updateProduct = async (req, res) => {
       delete updates.barcode;
       updates.$unset = { ...(updates.$unset || {}), barcode: "" };
     }
+    // An empty discount price clears the stored discount.
+    if (updates.discountPrice === "" || updates.discountPrice === null) {
+      delete updates.discountPrice;
+      updates.$unset = { ...(updates.$unset || {}), discountPrice: "" };
+    }
+    // Validate the discount against the price the product will have
+    // after this update (the new price, or the stored one).
+    const existing = await Product.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: "Product not found" });
+    const nextPrice =
+      updates.price !== undefined ? updates.price : existing.price;
+    const nextDiscount =
+      updates.discountPrice !== undefined
+        ? updates.discountPrice
+        : updates.$unset?.discountPrice !== undefined
+          ? undefined
+          : existing.discountPrice;
+    const badDiscount = discountError(nextDiscount, nextPrice);
+    if (badDiscount) {
+      return res.status(400).json({ error: badDiscount });
+    }
     const product = await Product.findByIdAndUpdate(req.params.id, updates, {
       new: true,
     });
-    if (!product) return res.status(404).json({ error: "Product not found" });
     res.json(product);
   } catch (error) {
     if (error.code === 11000) {

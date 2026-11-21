@@ -1,5 +1,6 @@
 const Order = require("../../model/Order");
 const Product = require("../../model/Product");
+const { effectivePrice } = require("../../utils/effectivePrice");
 const { findCallerShop } = require("../../utils/shopAccess");
 
 const LOW_STOCK_LIMIT = 5;
@@ -82,9 +83,10 @@ const getSummary = async (req, res) => {
         ),
       0
     );
+    // Stock is valued at the price it would actually sell for.
     const totalStockValue = round2(
       products.reduce(
-        (sum, p) => sum + (Number(p.price) || 0) * (Number(p.stock) || 0),
+        (sum, p) => sum + effectivePrice(p) * (Number(p.stock) || 0),
         0
       )
     );
@@ -112,9 +114,10 @@ const getSummary = async (req, res) => {
 
 // Per-product sales from completed orders in range. Every shop product is
 // listed, including ones with no sales (unitsSold 0). Revenue uses the
-// product's CURRENT price — orders don't store historical prices — so it
-// is an approximation when prices changed. Items whose product was deleted
-// cannot be attributed and are skipped.
+// product's CURRENT effective price (discount price when one is set) —
+// orders don't store historical prices — so it is an approximation when
+// prices changed. Items whose product was deleted cannot be attributed
+// and are skipped.
 const getSalesByProduct = async (req, res) => {
   const range = getRange(req, res);
   if (!range) return;
@@ -141,7 +144,7 @@ const getSalesByProduct = async (req, res) => {
           const entry = byProduct.get(key) || { unitsSold: 0, revenue: 0 };
           const qty = Number(item.quantity) || 0;
           entry.unitsSold += qty;
-          entry.revenue += qty * (Number(product.price) || 0);
+          entry.revenue += qty * effectivePrice(product);
           byProduct.set(key, entry);
         });
       });
@@ -156,7 +159,7 @@ const getSalesByProduct = async (req, res) => {
           productId: p._id,
           name: p.name,
           category: p.category || "Uncategorized",
-          price: p.price,
+          price: effectivePrice(p),
           unitsSold: entry.unitsSold,
           revenue: round2(entry.revenue),
         };
@@ -209,7 +212,7 @@ const getSalesByCategory = async (req, res) => {
           if (!entry) return;
           const qty = Number(item.quantity) || 0;
           entry.unitsSold += qty;
-          entry.revenue += qty * (Number(product.price) || 0);
+          entry.revenue += qty * effectivePrice(product);
         });
       });
 
@@ -323,8 +326,8 @@ const getInventory = async (req, res) => {
           name: p.name,
           category: p.category || "Uncategorized",
           stock,
-          price: p.price,
-          value: round2((Number(p.price) || 0) * stock),
+          price: effectivePrice(p),
+          value: round2(effectivePrice(p) * stock),
           status: stock === 0 ? "out" : stock <= LOW_STOCK_LIMIT ? "low" : "ok",
         };
       })

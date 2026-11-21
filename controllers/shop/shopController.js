@@ -2,11 +2,20 @@ const Order = require("../../model/Order");
 const Product = require("../../model/Product");
 const Shop = require("../../model/Shop");
 const { findCallerShop } = require("../../utils/shopAccess");
+const { maybeExpireSubscription } = require("../../utils/subscriptionExpiry");
 
 // Create a new shop
 const createShop = async (req, res) => {
   try {
-    const { subscriptionPlan, ...shopData } = req.body;
+    // The plan fields are never settable here — only the plan endpoint
+    // (admin) and a successful payment may change them.
+    const {
+      subscriptionPlan,
+      planName,
+      subscriptionStartDate,
+      subscriptionEndDate,
+      ...shopData
+    } = req.body;
     shopData.owner = req.user._id;
     const shop = new Shop(shopData);
     await shop.save();
@@ -23,7 +32,10 @@ const getShops = async (req, res) => {
       "owner",
       "name email avatar lastLogin "
     );
-    res.json(shops);
+    // Cancel any subscription whose grace period has run out, so the
+    // admin list shows the true state.
+    const current = await Promise.all(shops.map(maybeExpireSubscription));
+    res.json(current);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -31,7 +43,7 @@ const getShops = async (req, res) => {
 
 // Get a shop by ID (access checked by middleware: any team member)
 const getShop = async (req, res) => {
-  res.json(req.shop);
+  res.json(await maybeExpireSubscription(req.shop));
 };
 
 // Get the caller's shop: the shop they own, else the first shop they are
@@ -61,7 +73,15 @@ const updateShop = async (req, res) => {
   }
 
   // new tricks for update
-  const { subscriptionPlan, ...shopData } = req.body;
+  // The plan fields are never settable here — only the plan endpoint
+  // (admin) and a successful payment may change them.
+  const {
+    subscriptionPlan,
+    planName,
+    subscriptionStartDate,
+    subscriptionEndDate,
+    ...shopData
+  } = req.body;
 
   Object.assign(shop, shopData);
   await shop.save();

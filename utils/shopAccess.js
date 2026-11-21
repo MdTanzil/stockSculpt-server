@@ -1,5 +1,6 @@
 const Shop = require("../model/Shop");
 const ShopMember = require("../model/ShopMember");
+const { maybeExpireSubscription } = require("./subscriptionExpiry");
 
 // Role levels, weakest to strongest. "owner" is not a ShopMember role —
 // it is derived from Shop.owner. Platform admins bypass shop checks
@@ -23,15 +24,21 @@ const getShopRole = async (userId, shop) => {
 // The shop the caller works in: the shop they own, else the first shop
 // they are a staff member of. Returns { shop, role } or
 // { shop: null, role: null }. A user who is staff in several shops works
-// in the first membership found (documented limitation).
+// in the first membership found (documented limitation). A shop past its
+// grace period is cancelled here, so every caller sees the true state.
 const findCallerShop = async (userId) => {
   const owned = await Shop.findOne({ owner: userId });
-  if (owned) return { shop: owned, role: "owner" };
+  if (owned) {
+    return { shop: await maybeExpireSubscription(owned), role: "owner" };
+  }
   const membership = await ShopMember.findOne({ user: userId }).populate(
     "shop"
   );
   if (membership && membership.shop) {
-    return { shop: membership.shop, role: membership.role };
+    return {
+      shop: await maybeExpireSubscription(membership.shop),
+      role: membership.role,
+    };
   }
   return { shop: null, role: null };
 };

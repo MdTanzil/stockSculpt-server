@@ -87,6 +87,16 @@ a successful payment, which copies the period from the Subscription
 record it creates). The Subscription collection is the payment history;
 the Shop carries the live state the UI shows.
 
+**Grace period and automatic cancellation:** when a paid plan reaches
+its end date it is not cancelled at once — the shop gets 5 extra days
+to pay (`GRACE_DAYS` in `utils/subscriptionExpiry.js`), during which it
+keeps the paid plan and the owner sees a renewal notice. Once the grace
+period runs out the subscription is cancelled automatically: the shop
+drops to the Free plan with no dates. There is no background job on this
+serverless backend, so the check runs lazily — every read of a shop
+(`findCallerShop`, `getShop`, `getShops`) applies it, so any shop past
+its grace period is already Free by the time anyone sees it.
+
 ### Shop staff — `/api/shop/:id/members`
 
 Staff roles, weakest to strongest: **viewer** (read-only), **staff** (add

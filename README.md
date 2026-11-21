@@ -106,9 +106,15 @@ enforced in `middlewares/shopRole.js` (`requireShopRole` /
 |---|---|---|
 | `POST /api/products` | Staff+ | Create a product |
 | `GET /api/products` | User | List products |
+| `GET /api/products/barcode/:code` | User | Find a product in the caller's shop by barcode (404 if none) |
 | `GET /api/products/:id` | User | Get one product |
 | `PUT /api/products/:id` | Staff+ | Update a product |
 | `DELETE /api/products/:id` | Manager+ | Delete a product |
+
+Products have an optional `barcode` field, unique per shop (sparse index,
+so products without a barcode don't collide). Creating or updating a
+product with a barcode another product in the same shop already uses
+returns 400; sending an empty barcode clears it.
 
 ### Orders — `/api/order`
 

@@ -9,7 +9,13 @@ const productSchema = new mongoose.Schema({
   price: { type: Number, required: true },
   stock: { type: Number, required: true },
   category: { type: String },
+  // Optional barcode (EAN/UPC/QR content). Unique per shop so a scan
+  // always finds one product; sparse so products without a barcode
+  // don't collide. Clear it by sending an empty string (see controller).
+  barcode: { type: String, trim: true },
   createdAt: { type: Date, default: Date.now },
 });
+
+productSchema.index({ shop: 1, barcode: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model("Product", productSchema);

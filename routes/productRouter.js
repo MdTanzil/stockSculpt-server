@@ -5,6 +5,7 @@ const {
   updateProduct,
   deleteProduct,
   getProduct,
+  getProductByBarcode,
 } = require("../controllers/product/productController");
 const Product = require("../model/Product");
 const { authenticateUser } = require("../middlewares/authMiddleware");
@@ -12,6 +13,9 @@ const { requireResourceRole } = require("../middlewares/shopRole");
 
 router.post("/", authenticateUser, createProduct); // Create product (staff+)
 router.get("/", authenticateUser, getProducts); // Get all products
+// NOTE: the barcode route must stay BEFORE /:id, or Express would treat
+// "barcode" as a product id.
+router.get("/barcode/:code", authenticateUser, getProductByBarcode); // Find a product in the caller's shop by barcode (any team member)
 router.get("/:id", authenticateUser, getProduct); // get product by ID
 router.put(
   "/:id",

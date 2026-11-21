@@ -77,6 +77,27 @@ const updateShop = async (req, res) => {
   res.json(shop);
 };
 
+// Update a shop's subscription plan (admin only). This is the ONLY way to
+// change subscriptionPlan: createShop and updateShop strip it from the
+// request body, so members can never upgrade themselves.
+const updateShopPlan = async (req, res) => {
+  try {
+    const { subscriptionPlan } = req.body;
+    if (!["free", "premium"].includes(subscriptionPlan)) {
+      return res.status(400).json({
+        error: "Invalid subscription plan. Must be 'free' or 'premium'.",
+      });
+    }
+    const shop = await Shop.findById(req.params.id);
+    if (!shop) return res.status(404).json({ message: "Shop not found" });
+    shop.subscriptionPlan = subscriptionPlan;
+    await shop.save();
+    res.json(shop);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // Delete a shop by ID
 const deleteShop = async (req, res) => {
   try {
@@ -127,6 +148,7 @@ module.exports = {
   createShop,
   getShops,
   updateShop,
+  updateShopPlan,
   deleteShop,
   getShop,
   getShopProducts,

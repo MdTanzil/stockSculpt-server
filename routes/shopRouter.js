@@ -4,6 +4,7 @@ const {
   createShop,
   getShops,
   updateShop,
+  updateShopPlan,
   deleteShop,
   getShop,
   getShopProducts,
@@ -22,6 +23,12 @@ router.post("/", authenticateUser, createShop); // Create shop
 router.get("/:id", authenticateUser, checkShopOwnership, getShop); // Get a shops
 
 router.put("/:id", authenticateUser, checkShopOwnership, updateShop); // Update shop by ID
+router.put(
+  "/:id/plan",
+  authenticateUser,
+  authorizeRoles(["admin"]),
+  updateShopPlan
+); // Update a shop's subscription plan (admin only)
 router.delete("/:id", authenticateUser, checkShopOwnership, deleteShop); // Delete shop by ID
 router.get("/:id/orders", authenticateUser, checkShopOwnership, getShopOrders); // Get all shop orders
 router.get(

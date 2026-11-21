@@ -69,9 +69,15 @@ Admin-only routes also require the `admin` role.
 | `POST /api/shop` | User | Create a shop |
 | `GET /api/shop/:id` | Owner | Get one shop |
 | `PUT /api/shop/:id` | Owner | Update a shop |
+| `PUT /api/shop/:id/plan` | Admin | Change a shop's subscription plan (`free` / `premium`) |
 | `DELETE /api/shop/:id` | Owner | Delete a shop |
 | `GET /api/shop/:id/products` | Owner | List a shop's products |
 | `GET /api/shop/:id/orders` | Owner | List a shop's orders |
+
+A shop's `subscriptionPlan` can only be changed through
+`PUT /api/shop/:id/plan` (admin only). The create and update endpoints strip
+`subscriptionPlan` from the request body, so members can never upgrade
+themselves.
 
 ### Products — `/api/products`
 

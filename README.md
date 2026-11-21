@@ -25,6 +25,7 @@ bcryptjs) · Vercel
 | `MONGODB_URI` | Yes | MongoDB connection string |
 | `JWT_SECRET` | Yes | Secret for signing access tokens |
 | `JWT_REFRESH_SECRET` | Yes | Secret for signing refresh tokens |
+| `STRIPE_SECRET_KEY` | For payments | Stripe secret key (`sk_test_...` in test mode, from the same Stripe account as the test publishable key in the client). Without it the payment endpoints answer 503 and the payment page shows a "not set up yet" notice. |
 
 ## Getting started
 
@@ -207,6 +208,43 @@ each order's stored `totalPrice` and are exact. Items
 whose product was deleted are skipped in the per-product/category breakdowns.
 The inventory report is point-in-time and ignores the date range.
 
+### Plans — `/api/plans`
+
+Subscription plans live in the database, managed by the admin (Manage
+Plans page), instead of being hardcoded in the client. The subscription
+page, the home page pricing section and the Stripe payment flow all read
+from here, so an admin price change takes effect everywhere at once. The
+default plans (Free $0/3 products, Starter $10/200, Company $20/450,
+Enterprise $50/1,500 — yearly prices are 10x monthly, i.e. 2 months free)
+are seeded automatically on first run when the collection is empty.
+
+| Method & path | Auth | Purpose |
+|---|---|---|
+| `GET /api/plans` | – | List active plans, in display order |
+| `GET /api/plans/all` | Admin | List all plans, including inactive |
+| `POST /api/plans` | Admin | Create a plan |
+| `PUT /api/plans/:id` | Admin | Update a plan |
+| `DELETE /api/plans/:id` | Admin | Delete a plan |
+
+Plan fields: `name` (unique), `description`, `price` (monthly, USD),
+`yearlyPrice` (optional), `productLimit`, `features` (string list),
+`popular`, `active`, `order`. Every plan includes all app features —
+only the product limit changes.
+
+### Payments — `/api`
+
+Stripe subscription payments (test mode). The client confirms the
+PaymentIntent directly with Stripe, then records the payment here.
+
+| Method & path | Auth | Purpose |
+|---|---|---|
+| `POST /api/create-payment-intent` | User | Create a PaymentIntent for a plan; the price is looked up from the plan in the database, never trusted from the client |
+| `POST /api/payments` | User | Verify a succeeded PaymentIntent with Stripe, record the payment, activate premium on the caller's shop for the billing period (monthly/yearly; paying again while a subscription is running extends it from its current end date) |
+
+`POST /api/payments` is idempotent per `transactionId` (the Stripe
+PaymentIntent id): a retry returns the original record instead of
+recording the payment twice.
+
 ### Subscriptions — `/api/subscriptions`
 
 | Method & path | Auth | Purpose |
@@ -231,11 +269,11 @@ environment variables above must be set in the Vercel project.
 
 ## Known limitations
 
-- No `/create-payment-intent` endpoint yet — Stripe checkout on the client
-  cannot complete a real payment until the server adds it (needs the Stripe
-  secret key in Vercel env vars).
 - No `/send-email` endpoint yet — admin notice/promotional emails have no
   backend.
+- Expired subscriptions are not auto-downgraded — nothing runs when a
+  subscription's `endDate` passes, so the shop keeps the premium plan
+  until an admin changes it.
 - `/api/subscriptions` routes are currently unauthenticated.
 - `/api/auth/login` trusts the email the client sends (it does not verify
   the Firebase ID token), so a caller who knows an admin's email can mint

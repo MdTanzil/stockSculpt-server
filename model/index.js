@@ -1,4 +1,6 @@
 const Order = require("./Order");
+const Payment = require("./Payment");
+const Plan = require("./Plan");
 const Product = require("./Product");
 const PurchaseOrder = require("./PurchaseOrder");
 const Shop = require("./Shop");
@@ -13,6 +15,8 @@ module.exports = {
   ShopMember,
   Product,
   Order,
+  Payment,
+  Plan,
   Subscription,
   Supplier,
   PurchaseOrder,

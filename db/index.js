@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 require("dotenv").config();
 // All models, so their schema indexes can be created explicitly (below).
 const models = require("../model");
+const { seedPlans } = require("./seedPlans");
 
 // Memoized connection promise: connect once, then create every model's
 // indexes explicitly (rather than relying on Mongoose's background
@@ -29,6 +30,9 @@ async function dbConnect() {
             );
           }
         }
+        // Seed the default subscription plans on first run (no-op once
+        // any plan exists — the admin owns the plans after that).
+        await seedPlans();
       } catch (error) {
         console.error("❌ Error connecting to MongoDB:", error.message);
       }

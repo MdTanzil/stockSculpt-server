@@ -179,7 +179,19 @@ caller's shop and current stock, decrements stock atomically per line
 (with rollback if a later line runs out), computes the total server-side
 from current prices, and creates a **completed** order with
 `source: "pos"` and the recorded payment method (no payment is processed).
-The back-office `POST /api/order` does NOT check or decrement stock.
+
+The back-office `POST /api/order` checks stock the same way: every line
+must exist in the caller's shop with a whole-number quantity of at
+least 1, and the order is refused with 400 ("Not enough stock for X
+(only N left)") when a line exceeds the stock. Creating an order
+decrements stock (a cancelled order holds no stock, so nothing is
+decremented for one). The stock follows the order afterwards: `PUT`
+cancelling an order restores its stock, un-cancelling decrements it
+again (failing if there is not enough left), and editing the products
+adjusts stock by the difference per product; `DELETE` restores the
+stock of a non-cancelled order. The shared rules live in
+`utils/orderStock.js` and are used by both the back-office handlers
+and the POS sale.
 
 Every order records who created it (`createdBy`, set server-side from
 the caller's account — a client cannot claim another staff member

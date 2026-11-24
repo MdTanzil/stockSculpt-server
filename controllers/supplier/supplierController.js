@@ -1,6 +1,10 @@
 const PurchaseOrder = require("../../model/PurchaseOrder");
 const Supplier = require("../../model/Supplier");
 const { findCallerShop, hasRole } = require("../../utils/shopAccess");
+const {
+  logAudit,
+  describeChanges,
+} = require("../../utils/auditLog");
 
 const pickFields = (body) => ({
   name: body.name,
@@ -29,6 +33,17 @@ const createSupplier = async (req, res) => {
       shop: shop._id,
     });
     await supplier.save();
+    await logAudit({
+      shop: shop._id,
+      actor: req.user._id,
+      action: "supplier.created",
+      entityType: "supplier",
+      entityId: supplier._id,
+      entityName: supplier.name,
+      details: supplier.contactPerson
+        ? `Contact: ${supplier.contactPerson}`
+        : undefined,
+    });
     res.status(201).json(supplier);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -64,12 +79,29 @@ const getSupplier = async (req, res) => {
 // Update a supplier by ID (access checked by middleware)
 const updateSupplier = async (req, res) => {
   try {
+    const existing = await Supplier.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: "Supplier not found" });
     const supplier = await Supplier.findByIdAndUpdate(
       req.params.id,
       pickFields(req.body),
       { new: true, runValidators: true }
     );
-    if (!supplier) return res.status(404).json({ error: "Supplier not found" });
+    await logAudit({
+      shop: supplier.shop,
+      actor: req.user._id,
+      action: "supplier.updated",
+      entityType: "supplier",
+      entityId: supplier._id,
+      entityName: supplier.name,
+      details:
+        describeChanges(existing, supplier, [
+          { key: "name", label: "Name" },
+          { key: "contactPerson", label: "Contact" },
+          { key: "email", label: "Email" },
+          { key: "phone", label: "Phone" },
+          { key: "address", label: "Address" },
+        ]) || "Updated",
+    });
     res.json(supplier);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -92,6 +124,14 @@ const deleteSupplier = async (req, res) => {
     }
     const supplier = await Supplier.findByIdAndDelete(req.params.id);
     if (!supplier) return res.status(404).json({ error: "Supplier not found" });
+    await logAudit({
+      shop: supplier.shop,
+      actor: req.user._id,
+      action: "supplier.deleted",
+      entityType: "supplier",
+      entityId: supplier._id,
+      entityName: supplier.name,
+    });
     res.json({ message: "Supplier deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });

@@ -6,6 +6,7 @@ const {
   restoreStock,
 } = require("../../utils/orderStock");
 const { findCallerShop, hasRole } = require("../../utils/shopAccess");
+const { logAudit, orderNumber } = require("../../utils/auditLog");
 
 // An order holds stock while it is not cancelled: creating one
 // decrements stock, cancelling restores it, deleting restores it, and
@@ -61,6 +62,19 @@ const createOrder = async (req, res) => {
     }
 
     await order.save();
+    const itemCount = order.products.reduce(
+      (sum, item) => sum + Number(item.quantity || 0),
+      0
+    );
+    await logAudit({
+      shop: shop._id,
+      actor: req.user._id,
+      action: "order.created",
+      entityType: "order",
+      entityId: order._id,
+      entityName: orderNumber(order._id),
+      details: `${itemCount} item${itemCount === 1 ? "" : "s"}; total $${order.totalPrice}`,
+    });
     res.status(201).json(order);
   } catch (error) {
     console.log(error.message);
@@ -163,6 +177,29 @@ const updateOrder = async (req, res) => {
     const updated = await Order.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
     });
+    // One entry per save: a status change is the most informative, then
+    // an items change; a no-op save logs nothing.
+    if (newStatus !== order.orderStatus) {
+      await logAudit({
+        shop: order.shop,
+        actor: req.user._id,
+        action: "order.status_changed",
+        entityType: "order",
+        entityId: order._id,
+        entityName: orderNumber(order._id),
+        details: `Status ${order.orderStatus} → ${newStatus}`,
+      });
+    } else if (productsChanged) {
+      await logAudit({
+        shop: order.shop,
+        actor: req.user._id,
+        action: "order.updated",
+        entityType: "order",
+        entityId: order._id,
+        entityName: orderNumber(order._id),
+        details: "Items changed",
+      });
+    }
     res.json(updated);
   } catch (error) {
     console.log(error.message);
@@ -185,6 +222,19 @@ const deleteOrder = async (req, res) => {
       );
     }
     await Order.findByIdAndDelete(req.params.id);
+    const itemCount = order.products.reduce(
+      (sum, item) => sum + Number(item.quantity || 0),
+      0
+    );
+    await logAudit({
+      shop: order.shop,
+      actor: req.user._id,
+      action: "order.deleted",
+      entityType: "order",
+      entityId: order._id,
+      entityName: orderNumber(order._id),
+      details: `${itemCount} item${itemCount === 1 ? "" : "s"}; total $${order.totalPrice}`,
+    });
     res.json({ message: "Order deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -247,6 +297,19 @@ const createPOSSale = async (req, res) => {
       createdBy: req.user._id,
     });
     await order.save();
+    const itemCount = lines.reduce(
+      (sum, { quantity }) => sum + Number(quantity || 0),
+      0
+    );
+    await logAudit({
+      shop: shop._id,
+      actor: req.user._id,
+      action: "pos.sale",
+      entityType: "order",
+      entityId: order._id,
+      entityName: orderNumber(order._id),
+      details: `${itemCount} item${itemCount === 1 ? "" : "s"}; total $${totalPrice} (${paymentMethod})`,
+    });
     const populated = await Order.findById(order._id)
       .populate("shop")
       .populate("products.product")

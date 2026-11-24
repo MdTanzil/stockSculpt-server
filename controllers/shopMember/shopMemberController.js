@@ -1,5 +1,6 @@
 const ShopMember = require("../../model/ShopMember");
 const User = require("../../model/User");
+const { logAudit } = require("../../utils/auditLog");
 
 const MEMBER_ROLES = ["manager", "staff", "viewer"];
 
@@ -73,6 +74,15 @@ const addMember = async (req, res) => {
     });
     await member.save();
     await member.populate("user", "name email avatar");
+    await logAudit({
+      shop: shop._id,
+      actor: req.user._id,
+      action: "staff.added",
+      entityType: "staff",
+      entityId: user._id,
+      entityName: user.name || user.email,
+      details: `Role: ${role}`,
+    });
     res.status(201).json(member);
   } catch (error) {
     // Unique-index race: same user added twice at once.
@@ -101,8 +111,18 @@ const updateMemberRole = async (req, res) => {
     if (!member) {
       return res.status(404).json({ error: "Staff member not found" });
     }
+    const oldRole = member.role;
     member.role = role;
     await member.save();
+    await logAudit({
+      shop: req.shop._id,
+      actor: req.user._id,
+      action: "staff.role_changed",
+      entityType: "staff",
+      entityId: member.user._id,
+      entityName: member.user.name || member.user.email,
+      details: `Role ${oldRole} → ${role}`,
+    });
     res.json(member);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -120,6 +140,16 @@ const removeMember = async (req, res) => {
     if (!member) {
       return res.status(404).json({ error: "Staff member not found" });
     }
+    const removedUser = await User.findById(member.user).select("name email");
+    await logAudit({
+      shop: req.shop._id,
+      actor: req.user._id,
+      action: "staff.removed",
+      entityType: "staff",
+      entityId: member.user,
+      entityName: removedUser?.name || removedUser?.email || "Staff member",
+      details: `Role was ${member.role}`,
+    });
     res.json({ message: "Staff member removed" });
   } catch (error) {
     res.status(500).json({ error: error.message });

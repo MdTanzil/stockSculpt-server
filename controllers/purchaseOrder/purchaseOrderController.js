@@ -2,6 +2,7 @@ const Product = require("../../model/Product");
 const PurchaseOrder = require("../../model/PurchaseOrder");
 const Supplier = require("../../model/Supplier");
 const { findCallerShop, hasRole } = require("../../utils/shopAccess");
+const { logAudit, orderNumber } = require("../../utils/auditLog");
 
 const round2 = (value) => Math.round(value * 100) / 100;
 
@@ -80,6 +81,15 @@ const createPurchaseOrder = async (req, res) => {
       notes: req.body.notes,
     });
     await purchaseOrder.save();
+    await logAudit({
+      shop: shop._id,
+      actor: req.user._id,
+      action: "purchase_order.created",
+      entityType: "purchase_order",
+      entityId: purchaseOrder._id,
+      entityName: orderNumber(purchaseOrder._id),
+      details: `Supplier ${supplier.name}; ${cleanItems.length} item${cleanItems.length === 1 ? "" : "s"}; total $${totalCost}`,
+    });
     const populated = await populateOrder(
       PurchaseOrder.findById(purchaseOrder._id)
     );
@@ -141,6 +151,7 @@ const updatePurchaseOrder = async (req, res) => {
     // Validate against the ORDER's shop (resolved by the middleware), not
     // the caller's own shop — a user can own one shop and staff another.
     const shopId = req.shop ? req.shop._id : order.shop;
+    const oldStatus = order.status;
     if (req.body.supplier !== undefined) {
       const supplier = await Supplier.findById(req.body.supplier);
       if (!supplier || supplier.shop.toString() !== shopId.toString()) {
@@ -170,6 +181,21 @@ const updatePurchaseOrder = async (req, res) => {
     if (req.body.notes !== undefined) order.notes = req.body.notes;
 
     await order.save();
+    await logAudit({
+      shop: order.shop,
+      actor: req.user._id,
+      action:
+        order.status !== oldStatus
+          ? "purchase_order.status_changed"
+          : "purchase_order.updated",
+      entityType: "purchase_order",
+      entityId: order._id,
+      entityName: orderNumber(order._id),
+      details:
+        order.status !== oldStatus
+          ? `Status ${oldStatus} → ${order.status}`
+          : `Total $${order.totalCost}`,
+    });
     const populated = await populateOrder(
       PurchaseOrder.findById(order._id)
     );
@@ -209,6 +235,24 @@ const receivePurchaseOrder = async (req, res) => {
     order.receivedDate = new Date();
     await order.save();
 
+    const receivedUnits = order.items.reduce(
+      (sum, item) => sum + Number(item.quantity || 0),
+      0
+    );
+    await logAudit({
+      shop: order.shop,
+      actor: req.user._id,
+      action: "purchase_order.received",
+      entityType: "purchase_order",
+      entityId: order._id,
+      entityName: orderNumber(order._id),
+      details:
+        `Received ${receivedUnits} unit${receivedUnits === 1 ? "" : "s"} into stock` +
+        (skippedItems.length > 0
+          ? `; ${skippedItems.length} item${skippedItems.length === 1 ? "" : "s"} skipped (product deleted)`
+          : ""),
+    });
+
     const populated = await populateOrder(
       PurchaseOrder.findById(order._id)
     );
@@ -236,6 +280,15 @@ const deletePurchaseOrder = async (req, res) => {
       });
     }
     await PurchaseOrder.findByIdAndDelete(req.params.id);
+    await logAudit({
+      shop: order.shop,
+      actor: req.user._id,
+      action: "purchase_order.deleted",
+      entityType: "purchase_order",
+      entityId: order._id,
+      entityName: orderNumber(order._id),
+      details: `Total $${order.totalCost}; status ${order.status}`,
+    });
     res.json({ message: "Purchase order deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });

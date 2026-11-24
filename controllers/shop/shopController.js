@@ -3,6 +3,10 @@ const Product = require("../../model/Product");
 const Shop = require("../../model/Shop");
 const { findCallerShop } = require("../../utils/shopAccess");
 const { maybeExpireSubscription } = require("../../utils/subscriptionExpiry");
+const {
+  logAudit,
+  describeChanges,
+} = require("../../utils/auditLog");
 
 // Create a new shop
 const createShop = async (req, res) => {
@@ -82,9 +86,26 @@ const updateShop = async (req, res) => {
     subscriptionEndDate,
     ...shopData
   } = req.body;
+  const before = { name: shop.name, location: shop.location, logo: shop.logo };
 
   Object.assign(shop, shopData);
   await shop.save();
+  const changes = describeChanges(before, shop, [
+    { key: "name", label: "Name" },
+    { key: "location", label: "Location" },
+    { key: "logo", label: "Logo" },
+  ]);
+  if (changes) {
+    await logAudit({
+      shop: shop._id,
+      actor: req.user._id,
+      action: "shop.updated",
+      entityType: "shop",
+      entityId: shop._id,
+      entityName: shop.name,
+      details: changes,
+    });
+  }
   res.json(shop);
 };
 
@@ -96,7 +117,7 @@ const updateShopPlan = async (req, res) => {
     const shop = await Shop.findById(req.params.id);
     if (!shop) return res.status(404).json({ message: "Shop not found" });
 
-    // Preferred: { plan: "<plan name>", interval?, endDate? } — the plan
+    const oldPlanName = shop.planName || "Free";
     // must exist in the plans collection. A $0 plan means free, any
     // priced plan means premium, so subscriptionPlan and planName always
     // agree. A paid plan always gets a period: Monthly (default) or
@@ -142,6 +163,19 @@ const updateShopPlan = async (req, res) => {
         shop.subscriptionEndDate = endDate;
       }
       await shop.save();
+      await logAudit({
+        shop: shop._id,
+        actor: req.user._id,
+        action: "shop.plan_changed",
+        entityType: "shop",
+        entityId: shop._id,
+        entityName: shop.name,
+        details:
+          `Plan ${oldPlanName} → ${shop.planName}` +
+          (shop.subscriptionEndDate
+            ? ` (until ${shop.subscriptionEndDate.toISOString().slice(0, 10)})`
+            : ""),
+      });
       return res.json(shop);
     }
 
@@ -163,6 +197,15 @@ const updateShopPlan = async (req, res) => {
       shop.planName = "Premium";
     }
     await shop.save();
+    await logAudit({
+      shop: shop._id,
+      actor: req.user._id,
+      action: "shop.plan_changed",
+      entityType: "shop",
+      entityId: shop._id,
+      entityName: shop.name,
+      details: `Plan ${oldPlanName} → ${shop.planName}`,
+    });
     res.json(shop);
   } catch (error) {
     res.status(500).json({ error: error.message });

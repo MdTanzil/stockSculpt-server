@@ -1,6 +1,10 @@
 const Product = require("../../model/Product");
 const { findCallerShop, hasRole } = require("../../utils/shopAccess");
 const { getPlanProductLimit } = require("../../utils/planLimits");
+const {
+  logAudit,
+  describeChanges,
+} = require("../../utils/auditLog");
 
 // A discount price must be a real discount: a number >= 0 and below
 // the regular price. Returns an error string, or null when valid.
@@ -72,6 +76,15 @@ const createProduct = async (req, res) => {
     });
 
     await product.save();
+    await logAudit({
+      shop: shop._id,
+      actor: req.user._id,
+      action: "product.created",
+      entityType: "product",
+      entityId: product._id,
+      entityName: product.name,
+      details: `Price $${product.price}; stock ${product.stock}`,
+    });
     res.status(201).json(product);
   } catch (error) {
     if (error.code === 11000) {
@@ -136,6 +149,23 @@ const updateProduct = async (req, res) => {
     const product = await Product.findByIdAndUpdate(req.params.id, updates, {
       new: true,
     });
+    await logAudit({
+      shop: existing.shop,
+      actor: req.user._id,
+      action: "product.updated",
+      entityType: "product",
+      entityId: product._id,
+      entityName: product.name,
+      details:
+        describeChanges(existing, product, [
+          { key: "name", label: "Name" },
+          { key: "price", label: "Price", money: true },
+          { key: "discountPrice", label: "Discount price", money: true },
+          { key: "stock", label: "Stock" },
+          { key: "category", label: "Category" },
+          { key: "barcode", label: "Barcode" },
+        ]) || "Updated",
+    });
     res.json(product);
   } catch (error) {
     if (error.code === 11000) {
@@ -176,6 +206,15 @@ const deleteProduct = async (req, res) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
     if (!product) return res.status(404).json({ error: "Product not found" });
+    await logAudit({
+      shop: product.shop,
+      actor: req.user._id,
+      action: "product.deleted",
+      entityType: "product",
+      entityId: product._id,
+      entityName: product.name,
+      details: `Price $${product.price}; stock ${product.stock}`,
+    });
     res.json({ message: "Product deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });

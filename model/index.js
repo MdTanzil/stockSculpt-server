@@ -1,3 +1,4 @@
+const AuditLog = require("./AuditLog");
 const Order = require("./Order");
 const Payment = require("./Payment");
 const Plan = require("./Plan");
@@ -20,4 +21,5 @@ module.exports = {
   Subscription,
   Supplier,
   PurchaseOrder,
+  AuditLog,
 };

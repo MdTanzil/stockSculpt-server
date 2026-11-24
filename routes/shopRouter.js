@@ -11,6 +11,9 @@ const {
   getShopOrders,
   getShopByUserID,
 } = require("../controllers/shop/shopController");
+const {
+  getAuditLogs,
+} = require("../controllers/auditLog/auditLogController");
 const { authenticateUser } = require("../middlewares/authMiddleware");
 const { requireShopRole } = require("../middlewares/shopRole");
 const { authorizeRoles } = require("../middlewares/roleMiddleware");
@@ -39,5 +42,11 @@ router.get(
   requireShopRole("viewer"),
   getShopProducts
 ); // Get all shop products
+router.get(
+  "/:id/audit-logs",
+  authenticateUser,
+  requireShopRole("viewer"),
+  getAuditLogs
+); // Get a shop's audit log (any team member)
 
 module.exports = router;

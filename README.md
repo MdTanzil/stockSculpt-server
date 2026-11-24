@@ -74,6 +74,24 @@ Admin-only routes also require the `admin` role.
 | `DELETE /api/shop/:id` | Owner | Delete a shop |
 | `GET /api/shop/:id/products` | Team member | List a shop's products |
 | `GET /api/shop/:id/orders` | Team member | List a shop's orders |
+| `GET /api/shop/:id/audit-logs` | Team member | List a shop's audit log (newest first; see below) |
+
+**Audit log:** every mutation to a shop's products, orders (including
+POS sales), suppliers, purchase orders, staff and shop settings is
+recorded in the `AuditLog` collection — who did it (`actor`, populated
+as `{name, email}`), what happened (`action`, e.g.
+`product.created`, `order.status_changed`, `pos.sale`,
+`purchase_order.received`, `staff.role_changed`, `shop.plan_changed`),
+which item (`entityType` / `entityId` / `entityName` — the name is a
+snapshot, so a deleted item still reads sensibly), and a short
+human-readable summary (`details`, e.g. `Stock 5 → 3` or `Status
+pending → completed`). Entries are written by the controllers through
+`utils/auditLog.js` after the mutation succeeds, and a failed write
+never breaks the operation. There is no endpoint that updates or
+deletes entries — the log is append-only. The list endpoint takes
+`?entityType=&action=&actor=&from=&to=` filters (dates are
+`YYYY-MM-DD`; the `to` day is included whole) and `?page=&limit=`
+(default 50, max 100), returning `{ logs, total, page, pages }`.
 
 A shop's `subscriptionPlan` can only be changed through
 `PUT /api/shop/:id/plan` (admin only). The create and update endpoints strip

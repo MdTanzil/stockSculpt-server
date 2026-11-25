@@ -153,6 +153,7 @@ enforced in `middlewares/shopRole.js` (`requireShopRole` /
 | Method & path | Auth | Purpose |
 |---|---|---|
 | `POST /api/products` | Staff+ | Create a product |
+| `POST /api/products/import` | Staff+ | Bulk import products from a parsed CSV: `{ rows: [{ name, price, discountPrice, stock, category, barcode, description, row }] }` — each row is validated with the same rules as single creation (a bad row is reported, not fatal); returns 201 with `{ created, errors: [{ row, name, error }] }` when at least one product was created, else 400. At most 500 rows per file; the plan limit is checked for the whole batch first (a batch that would exceed it is refused with `PRODUCT_LIMIT_REACHED`); one `product.imported` audit entry summarises the import |
 | `GET /api/products` | User | List products |
 | `GET /api/products/barcode/:code` | User | Find a product in the caller's shop by barcode (404 if none) |
 | `GET /api/products/:id` | User | Get one product |

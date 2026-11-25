@@ -6,6 +6,10 @@ const {
   describeChanges,
 } = require("../../utils/auditLog");
 
+// Bulk import limits: a file can carry at most this many rows, so one
+// import cannot run a serverless function into its timeout.
+const MAX_IMPORT_ROWS = 500;
+
 // A discount price must be a real discount: a number >= 0 and below
 // the regular price. Returns an error string, or null when valid.
 // An empty/missing value means "no discount" and is always valid.
@@ -93,6 +97,179 @@ const createProduct = async (req, res) => {
       });
     }
     res.status(400).json({ error: error.message });
+  }
+};
+
+// Validate one CSV import row (the same rules as createProduct, minus
+// the plan limit, which is checked for the whole batch). Returns
+// { product } with the cleaned fields to insert, { skip: true } for a
+// fully blank row, or { error } with a user-facing message.
+const validateImportRow = (row) => {
+  const text = (value) =>
+    value === undefined || value === null ? "" : String(value).trim();
+  const name = text(row.name);
+  const priceRaw = text(row.price);
+  const stockRaw = text(row.stock);
+  const discountRaw = text(row.discountPrice);
+  const category = text(row.category);
+  const barcode = text(row.barcode);
+  const description = text(row.description);
+
+  if (
+    !name &&
+    !priceRaw &&
+    !stockRaw &&
+    !discountRaw &&
+    !category &&
+    !barcode &&
+    !description
+  ) {
+    return { skip: true };
+  }
+  if (!name) return { error: "Name is required." };
+  const price = Number(priceRaw);
+  if (priceRaw === "" || !Number.isFinite(price) || price < 0) {
+    return { error: "Price must be a number of 0 or more." };
+  }
+  const stock = Number(stockRaw);
+  if (stockRaw === "" || !Number.isInteger(stock) || stock < 0) {
+    return { error: "Stock must be a whole number of 0 or more." };
+  }
+  const badDiscount = discountError(
+    discountRaw === "" ? undefined : discountRaw,
+    price
+  );
+  if (badDiscount) return { error: badDiscount };
+
+  const product = { name, price, stock };
+  if (discountRaw !== "") product.discountPrice = Number(discountRaw);
+  if (category) product.category = category;
+  if (barcode) product.barcode = barcode;
+  if (description) product.description = description;
+  return { product };
+};
+
+// Bulk import products from a parsed CSV: POST /api/products/import
+// with { rows: [{ name, price, discountPrice, stock, category,
+// barcode, description, row }] } — the client parses the file (see
+// src/utils/productCsv.js) and the server validates every row, so a
+// bad row never blocks the good ones. Returns 201 with
+// { created, errors: [{ row, name, error }] } when at least one product
+// was created, else 400 with the same shape. Rows are inserted one by
+// one so each failure is attributed to its own row (including a
+// duplicate barcode that slipped past the pre-check).
+const importProducts = async (req, res) => {
+  try {
+    const { shop, role } = await findCallerShop(req.user._id);
+    if (!shop) {
+      return res.status(403).json({ message: "You don't have a shop" });
+    }
+    if (!hasRole(role, "staff")) {
+      return res
+        .status(403)
+        .json({ message: "Viewers cannot add products." });
+    }
+
+    const rows = req.body.rows;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ error: "No rows to import." });
+    }
+    if (rows.length > MAX_IMPORT_ROWS) {
+      return res.status(400).json({
+        error: `A file can import at most ${MAX_IMPORT_ROWS} products at once.`,
+      });
+    }
+
+    // Barcodes already in the shop, so a row reusing one fails with a
+    // clear message instead of a database error.
+    const existing = await Product.find(
+      { shop: shop._id, barcode: { $type: "string" } },
+      "barcode"
+    );
+    const usedBarcodes = new Set(existing.map((p) => p.barcode));
+
+    const errors = [];
+    const valid = [];
+    const seenBarcodes = new Set();
+    for (const row of rows) {
+      const rowNo = row.row ?? "?";
+      const { product, skip, error } = validateImportRow(row);
+      if (skip) continue;
+      if (error) {
+        errors.push({ row: rowNo, name: row.name || "", error });
+        continue;
+      }
+      if (product.barcode) {
+        if (usedBarcodes.has(product.barcode)) {
+          errors.push({
+            row: rowNo,
+            name: product.name,
+            error: "Another product in your shop already uses this barcode.",
+          });
+          continue;
+        }
+        if (seenBarcodes.has(product.barcode)) {
+          errors.push({
+            row: rowNo,
+            name: product.name,
+            error: `Barcode ${product.barcode} is used twice in this file.`,
+          });
+          continue;
+        }
+        seenBarcodes.add(product.barcode);
+      }
+      // Keep the CSV line number with the row, so an insert failure
+      // later still points at the right row in the user's file.
+      valid.push({ product, rowNo });
+    }
+
+    // The plan limit counts only rows that would actually be created.
+    // Refusing the whole batch beats importing a partial file the user
+    // did not ask for — the message says how many slots are left.
+    const limit = await getPlanProductLimit(shop);
+    const count = await Product.countDocuments({ shop: shop._id });
+    const remaining = Math.max(0, limit - count);
+    if (valid.length > remaining) {
+      return res.status(403).json({
+        error: `Your ${shop.planName || "Free"} plan allows ${remaining} more product${remaining === 1 ? "" : "s"} (up to ${limit}). This file has ${valid.length} new products — remove some rows or upgrade.`,
+        code: "PRODUCT_LIMIT_REACHED",
+      });
+    }
+
+    const created = [];
+    for (const { product: fields, rowNo } of valid) {
+      try {
+        const product = new Product({ ...fields, shop: shop._id });
+        await product.save();
+        created.push(product);
+        if (product.barcode) usedBarcodes.add(product.barcode);
+      } catch (error) {
+        // Race safety: a barcode taken between the pre-check and the
+        // insert still fails as a per-row error, not a whole-batch 500.
+        const message =
+          error.code === 11000
+            ? "Another product in your shop already uses this barcode."
+            : error.message;
+        errors.push({ row: rowNo, name: fields.name, error: message });
+      }
+    }
+
+    if (created.length > 0) {
+      await logAudit({
+        shop: shop._id,
+        actor: req.user._id,
+        action: "product.imported",
+        entityType: "product",
+        entityId: created[0]._id,
+        entityName: "CSV import",
+        details: `Imported ${created.length} product${created.length === 1 ? "" : "s"}${errors.length > 0 ? `; ${errors.length} row${errors.length === 1 ? "" : "s"} skipped` : ""}`,
+      });
+    }
+
+    const body = { created, errors };
+    return res.status(created.length > 0 ? 201 : 400).json(body);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
 
@@ -223,6 +400,7 @@ const deleteProduct = async (req, res) => {
 
 module.exports = {
   createProduct,
+  importProducts,
   getProducts,
   updateProduct,
   deleteProduct,

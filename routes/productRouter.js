@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const {
   createProduct,
+  importProducts,
   getProducts,
   updateProduct,
   deleteProduct,
@@ -13,6 +14,7 @@ const { requirePremium } = require("../middlewares/requirePremium");
 const { requireResourceRole } = require("../middlewares/shopRole");
 
 router.post("/", authenticateUser, createProduct); // Create product (staff+)
+router.post("/import", authenticateUser, importProducts); // Bulk import products from CSV (staff+)
 router.get("/", authenticateUser, getProducts); // Get all products
 // NOTE: the barcode route must stay BEFORE /:id, or Express would treat
 // "barcode" as a product id.

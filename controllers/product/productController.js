@@ -1,6 +1,7 @@
 const Product = require("../../model/Product");
 const { findCallerShop, hasRole } = require("../../utils/shopAccess");
 const { getPlanProductLimit } = require("../../utils/planLimits");
+const { isLowStock } = require("../../utils/lowStock");
 const {
   logAudit,
   describeChanges,
@@ -27,6 +28,24 @@ const discountError = (discountPrice, price) => {
   }
   if (Number(price) <= d) {
     return "Discount price must be below the regular price.";
+  }
+  return null;
+};
+
+// A low-stock threshold must be a whole number >= 0. Returns an
+// error string, or null when valid. An empty/missing value means
+// "the default (5)" and is always valid.
+const thresholdError = (lowStockThreshold) => {
+  if (
+    lowStockThreshold === undefined ||
+    lowStockThreshold === null ||
+    lowStockThreshold === ""
+  ) {
+    return null;
+  }
+  const t = Number(lowStockThreshold);
+  if (!Number.isInteger(t) || t < 0) {
+    return "Low stock threshold must be a whole number of 0 or more.";
   }
   return null;
 };
@@ -73,6 +92,19 @@ const createProduct = async (req, res) => {
       return res.status(400).json({ error: badDiscount });
     }
 
+    // An empty threshold means "the default (5)" — omit it so the
+    // schema default applies.
+    if (
+      req.body.lowStockThreshold === "" ||
+      req.body.lowStockThreshold === null
+    ) {
+      delete req.body.lowStockThreshold;
+    }
+    const badThreshold = thresholdError(req.body.lowStockThreshold);
+    if (badThreshold) {
+      return res.status(400).json({ error: badThreshold });
+    }
+
     // Create product
     const product = new Product({
       ...req.body,
@@ -111,6 +143,7 @@ const validateImportRow = (row) => {
   const priceRaw = text(row.price);
   const stockRaw = text(row.stock);
   const discountRaw = text(row.discountPrice);
+  const thresholdRaw = text(row.lowStockThreshold);
   const category = text(row.category);
   const barcode = text(row.barcode);
   const description = text(row.description);
@@ -120,6 +153,7 @@ const validateImportRow = (row) => {
     !priceRaw &&
     !stockRaw &&
     !discountRaw &&
+    !thresholdRaw &&
     !category &&
     !barcode &&
     !description
@@ -140,9 +174,14 @@ const validateImportRow = (row) => {
     price
   );
   if (badDiscount) return { error: badDiscount };
+  const badThreshold = thresholdError(
+    thresholdRaw === "" ? undefined : thresholdRaw
+  );
+  if (badThreshold) return { error: badThreshold };
 
   const product = { name, price, stock };
   if (discountRaw !== "") product.discountPrice = Number(discountRaw);
+  if (thresholdRaw !== "") product.lowStockThreshold = Number(thresholdRaw);
   if (category) product.category = category;
   if (barcode) product.barcode = barcode;
   if (description) product.description = description;
@@ -307,6 +346,19 @@ const updateProduct = async (req, res) => {
       delete updates.discountPrice;
       updates.$unset = { ...(updates.$unset || {}), discountPrice: "" };
     }
+    // An empty threshold clears the stored threshold (back to the
+    // default of 5).
+    if (
+      updates.lowStockThreshold === "" ||
+      updates.lowStockThreshold === null
+    ) {
+      delete updates.lowStockThreshold;
+      updates.$unset = { ...(updates.$unset || {}), lowStockThreshold: "" };
+    }
+    const badThreshold = thresholdError(updates.lowStockThreshold);
+    if (badThreshold) {
+      return res.status(400).json({ error: badThreshold });
+    }
     // Validate the discount against the price the product will have
     // after this update (the new price, or the stored one).
     const existing = await Product.findById(req.params.id);
@@ -339,6 +391,7 @@ const updateProduct = async (req, res) => {
           { key: "price", label: "Price", money: true },
           { key: "discountPrice", label: "Discount price", money: true },
           { key: "stock", label: "Stock" },
+          { key: "lowStockThreshold", label: "Low stock at" },
           { key: "category", label: "Category" },
           { key: "barcode", label: "Barcode" },
         ]) || "Updated",

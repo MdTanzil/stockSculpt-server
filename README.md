@@ -167,6 +167,13 @@ that have the shop field, with the missing barcode treated as null).
 Creating or updating a product with a barcode another product in the same
 shop already uses returns 400; sending an empty barcode clears it.
 
+Products also have an optional `lowStockThreshold` (a whole number >= 0,
+default 5): stock at or below it counts as low stock for that product
+in the dashboard banner, the product table, the low-stock filter and the
+reports. Sending an empty threshold clears it back to the default; an
+invalid value returns 400. The CSV import accepts a `lowStockThreshold`
+column with the same rules.
+
 Products also have an optional `discountPrice` (a sale price). When set
 below the regular `price`, customers pay the discount price instead —
 POS sale totals, report revenue and stock valuation all use the

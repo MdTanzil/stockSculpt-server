@@ -1,9 +1,8 @@
 const Order = require("../../model/Order");
 const Product = require("../../model/Product");
 const { effectivePrice } = require("../../utils/effectivePrice");
+const { isLowStock } = require("../../utils/lowStock");
 const { findCallerShop } = require("../../utils/shopAccess");
-
-const LOW_STOCK_LIMIT = 5;
 
 const round2 = (value) => Math.round(value * 100) / 100;
 
@@ -103,9 +102,7 @@ const getSummary = async (req, res) => {
         completed.length > 0 ? round2(totalRevenue / completed.length) : 0,
       totalProducts: products.length,
       totalStockValue,
-      lowStockCount: products.filter(
-        (p) => Number(p.stock) <= LOW_STOCK_LIMIT
-      ).length,
+      lowStockCount: products.filter((p) => isLowStock(p)).length,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -328,7 +325,7 @@ const getInventory = async (req, res) => {
           stock,
           price: effectivePrice(p),
           value: round2(effectivePrice(p) * stock),
-          status: stock === 0 ? "out" : stock <= LOW_STOCK_LIMIT ? "low" : "ok",
+          status: stock === 0 ? "out" : isLowStock(p) ? "low" : "ok",
         };
       })
       .sort((a, b) => b.value - a.value);

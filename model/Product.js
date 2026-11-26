@@ -14,6 +14,10 @@ const productSchema = new mongoose.Schema({
   // an empty string or null.
   discountPrice: { type: Number, min: 0 },
   stock: { type: Number, required: true },
+  // Stock at or below this number counts as "low stock" for this
+  // product (banner, table badge, filter, reports). 5 when unset, so
+  // older products behave exactly as before.
+  lowStockThreshold: { type: Number, min: 0, default: 5 },
   category: { type: String },
   // Optional barcode (EAN/UPC/QR content). Unique per shop so a scan
   // always finds one product. Clear it by sending an empty string
